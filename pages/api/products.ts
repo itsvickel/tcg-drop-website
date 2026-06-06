@@ -10,8 +10,21 @@ type StatePrice = {
   image_url?: string;
 };
 
+type StateRawProduct = {
+  name: string;
+  price: number;
+  retailer: string;
+  url: string;
+  in_stock: boolean;
+  is_preorder: boolean;
+  group_key: string;
+  image_url?: string;
+  last_seen: string;
+};
+
 type StateJson = {
   best_prices: Record<string, StatePrice>;
+  products?: Record<string, StateRawProduct>;
 };
 
 type HistoryEntry = {
@@ -27,6 +40,13 @@ type HistoryItem = {
 
 type HistoryJson = Record<string, HistoryItem>;
 
+export type RetailerPrice = {
+  retailer: string;
+  price: number;
+  url: string;
+  in_stock: boolean;
+};
+
 export type Product = {
   group_key: string;
   name: string;
@@ -39,6 +59,7 @@ export type Product = {
   price_change_7d: number | null;
   history: HistoryEntry[];
   image_url: string;
+  other_retailers: RetailerPrice[];
 };
 
 export type ApiResponse = {
@@ -119,12 +140,36 @@ async function fetchJson<T>(repo: string, token: string, fileName: string): Prom
 }
 
 function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
+  // Build group_key → all retailer entries map from raw products
+  const byGroup = new Map<string, RetailerPrice[]>();
+  for (const raw of Object.values(state.products ?? {})) {
+    if (!raw.group_key || raw.price == null || raw.price < 3) continue;
+    const list = byGroup.get(raw.group_key) ?? [];
+    list.push({ retailer: raw.retailer, price: raw.price, url: raw.url, in_stock: raw.in_stock });
+    byGroup.set(raw.group_key, list);
+  }
+
   const products = Object.entries(state.best_prices)
     .map(([group_key, bestPrice]) => {
       const historyItem = history[group_key];
       const entries = historyItem?.entries ?? [];
       const allTimeLow = computeAllTimeLow(entries, bestPrice.price);
       const sevenDayChange = computeSevenDayChange(entries, bestPrice.price);
+
+      // Deduplicate by retailer (keep lowest price per retailer), exclude the best retailer
+      const allRetailers = byGroup.get(group_key) ?? [];
+      const byRetailer = new Map<string, RetailerPrice>();
+      for (const r of allRetailers) {
+        if (r.retailer === bestPrice.retailer) continue;
+        const existing = byRetailer.get(r.retailer);
+        if (!existing || (r.in_stock && !existing.in_stock) || (r.in_stock === existing.in_stock && r.price < existing.price)) {
+          byRetailer.set(r.retailer, r);
+        }
+      }
+      const otherRetailers = Array.from(byRetailer.values()).sort((a, b) => {
+        if (a.in_stock !== b.in_stock) return a.in_stock ? -1 : 1;
+        return a.price - b.price;
+      });
 
       const product: Product = {
         group_key,
@@ -137,7 +182,8 @@ function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
         all_time_low: allTimeLow,
         price_change_7d: sevenDayChange,
         history: entries,
-        image_url: bestPrice.image_url ?? ""
+        image_url: bestPrice.image_url ?? "",
+        other_retailers: otherRetailers
       };
 
       return product;

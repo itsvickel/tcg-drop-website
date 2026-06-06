@@ -172,3 +172,81 @@
 .buyButton:hover {
   filter: brightness(1.12);
 }
+
+/* ── Multi-retailer comparison panel ── */
+
+.compareSection {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.compareToggle {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  transition: color 0.15s;
+}
+
+.compareToggle:hover {
+  color: var(--blue);
+}
+
+.compareList {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compareRow {
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.compareStock {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.inStock {
+  color: var(--green);
+}
+
+.outOfStock {
+  color: var(--red);
+}
+
+.compareRetailer {
+  color: #c9d1d9;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.comparePrice {
+  color: var(--blue);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.compareLink {
+  color: var(--green);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.compareLink:hover {
+  text-decoration: underline;
+}

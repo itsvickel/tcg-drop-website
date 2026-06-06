@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Sparkline from "./Sparkline";
 import styles from "../styles/Card.module.css";
 
@@ -5,6 +6,13 @@ type HistoryEntry = {
   date: string;
   price: number;
   retailer: string;
+};
+
+export type RetailerPrice = {
+  retailer: string;
+  price: number;
+  url: string;
+  in_stock: boolean;
 };
 
 export type Product = {
@@ -19,6 +27,7 @@ export type Product = {
   price_change_7d: number | null;
   history: HistoryEntry[];
   image_url: string;
+  other_retailers: RetailerPrice[];
 };
 
 type ProductCardProps = {
@@ -45,14 +54,12 @@ function stripTrackingParams(input: string): string {
   try {
     const url = new URL(input);
     const params = url.searchParams;
-
     const keys = [...params.keys()];
     for (const key of keys) {
       if (key === "ref" || key.startsWith("utm_") || key === "fbclid" || key === "gclid") {
         params.delete(key);
       }
     }
-
     url.search = params.toString();
     return url.toString();
   } catch {
@@ -62,10 +69,7 @@ function stripTrackingParams(input: string): string {
 
 function formatUpdatedDate(input: string): string {
   const parsed = new Date(input);
-  if (Number.isNaN(parsed.getTime())) {
-    return "Unknown";
-  }
-
+  if (Number.isNaN(parsed.getTime())) return "Unknown";
   return parsed.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
@@ -79,10 +83,13 @@ function getShippingThreshold(retailer: string): string {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const [showCompare, setShowCompare] = useState(false);
+
   const isAllTimeLow = product.price <= product.all_time_low + 0.0001;
   const cleanUrl = stripTrackingParams(product.url);
   const weeklyChange = product.price_change_7d;
   const hasWeeklyChange = weeklyChange !== null;
+  const hasOthers = product.other_retailers.length > 0;
 
   return (
     <article
@@ -128,6 +135,42 @@ export default function ProductCard({ product }: ProductCardProps) {
           Buy Now →
         </a>
       </div>
+
+      {hasOthers && (
+        <div className={styles.compareSection}>
+          <button
+            className={styles.compareToggle}
+            onClick={() => setShowCompare((v) => !v)}
+            aria-expanded={showCompare}
+          >
+            {showCompare
+              ? "Hide prices ▲"
+              : `Compare ${product.other_retailers.length} more store${product.other_retailers.length > 1 ? "s" : ""} ▼`}
+          </button>
+
+          {showCompare && (
+            <ul className={styles.compareList}>
+              {product.other_retailers.map((r) => (
+                <li key={r.retailer} className={styles.compareRow}>
+                  <span className={`${styles.compareStock} ${r.in_stock ? styles.inStock : styles.outOfStock}`}>
+                    {r.in_stock ? "✓" : "✗"}
+                  </span>
+                  <span className={styles.compareRetailer}>{r.retailer}</span>
+                  <span className={styles.comparePrice}>{`$${r.price.toFixed(2)}`}</span>
+                  <a
+                    href={stripTrackingParams(r.url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.compareLink}
+                  >
+                    Buy →
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </article>
   );
 }
