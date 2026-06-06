@@ -122,6 +122,19 @@
   color: #b8dcff;
   font-size: 0.78rem;
   padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.retailerChip:hover {
+  background: rgba(56, 139, 253, 0.18);
+  border-color: rgba(88, 166, 255, 0.7);
+}
+
+.retailerChipActive {
+  background: rgba(56, 139, 253, 0.28);
+  border-color: var(--blue);
+  color: #fff;
 }
 
 .shippingLabel {

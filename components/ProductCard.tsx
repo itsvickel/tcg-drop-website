@@ -32,6 +32,8 @@ export type Product = {
 
 type ProductCardProps = {
   product: Product;
+  onRetailerClick?: (retailer: string) => void;
+  activeRetailer?: string;
 };
 
 const SHIPPING_THRESHOLDS: Record<string, string> = {
@@ -82,7 +84,7 @@ function getShippingThreshold(retailer: string): string {
   return SHIPPING_THRESHOLDS[retailer] ?? "Check site";
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, onRetailerClick, activeRetailer }: ProductCardProps) {
   const [showCompare, setShowCompare] = useState(false);
 
   const isAllTimeLow = product.price <= product.all_time_low + 0.0001;
@@ -90,6 +92,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const weeklyChange = product.price_change_7d;
   const hasWeeklyChange = weeklyChange !== null;
   const hasOthers = product.other_retailers.length > 0;
+  const isActiveFilter = activeRetailer === product.retailer;
 
   return (
     <article
@@ -100,7 +103,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       {product.image_url && (
         <div className={styles.imageWrap}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={product.image_url} alt={product.name} className={styles.productImage} />
+          <img src={product.image_url} alt={product.name} className={styles.productImage} loading="lazy" />
         </div>
       )}
 
@@ -123,7 +126,14 @@ export default function ProductCard({ product }: ProductCardProps) {
       )}
 
       <div className={styles.retailerRow}>
-        <span className={styles.retailerChip}>{product.retailer}</span>
+        <button
+          className={`${styles.retailerChip} ${isActiveFilter ? styles.retailerChipActive : ""}`}
+          onClick={() => onRetailerClick?.(product.retailer)}
+          title={isActiveFilter ? `Remove filter: ${product.retailer}` : `Filter by ${product.retailer}`}
+          type="button"
+        >
+          {product.retailer}
+        </button>
         <span className={styles.shippingLabel}>{getShippingThreshold(product.retailer)}</span>
       </div>
 
@@ -142,6 +152,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             className={styles.compareToggle}
             onClick={() => setShowCompare((v) => !v)}
             aria-expanded={showCompare}
+            type="button"
           >
             {showCompare
               ? "Hide prices ▲"
