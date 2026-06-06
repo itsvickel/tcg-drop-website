@@ -1,0 +1,93 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 660px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #f0f6fc;
+  font-family: "JetBrains Mono", monospace;
+  line-height: 1.45;
+}
+
+.closeButton {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 3px 10px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1.4;
+}
+
+.closeButton:hover {
+  color: #f0f6fc;
+  border-color: #8b949e;
+}
+
+.statsRow {
+  display: flex;
+  gap: 20px;
+  font-size: 0.84rem;
+  color: var(--muted);
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.statsRow strong {
+  color: var(--blue);
+}
+
+.chartWrap {
+  margin: 0 -4px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .modal {
+    padding: 16px;
+    border-radius: 12px;
+  }
+}

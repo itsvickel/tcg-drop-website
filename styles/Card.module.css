@@ -70,6 +70,12 @@
   border: 1px solid rgba(210, 153, 34, 0.45);
 }
 
+.badgeNew {
+  color: #b3d9ff;
+  background: rgba(88, 166, 255, 0.14);
+  border: 1px solid rgba(88, 166, 255, 0.4);
+}
+
 .badgeDrop {
   color: #d2f9d7;
   background: rgba(63, 185, 80, 0.16);
@@ -144,6 +150,16 @@
 
 .sparklineWrap {
   margin-top: 2px;
+}
+
+.sparklineButton {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: opacity 0.15s;
+}
+
+.sparklineButton:hover {
+  opacity: 0.8;
 }
 
 .sparklineEmpty {
@@ -248,10 +264,20 @@
 }
 
 .comparePrice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   color: var(--blue);
   font-family: "JetBrains Mono", monospace;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.compareDelta {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.2;
 }
 
 .compareLink {

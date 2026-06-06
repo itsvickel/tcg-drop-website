@@ -60,6 +60,7 @@ export type Product = {
   history: HistoryEntry[];
   image_url: string;
   other_retailers: RetailerPrice[];
+  is_new: boolean;
 };
 
 export type ApiResponse = {
@@ -140,6 +141,8 @@ async function fetchJson<T>(repo: string, token: string, fileName: string): Prom
 }
 
 function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
+  const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
   // Build group_key → all retailer entries map from raw products
   const byGroup = new Map<string, RetailerPrice[]>();
   for (const raw of Object.values(state.products ?? {})) {
@@ -155,6 +158,11 @@ function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
       const entries = historyItem?.entries ?? [];
       const allTimeLow = computeAllTimeLow(entries, bestPrice.price);
       const sevenDayChange = computeSevenDayChange(entries, bestPrice.price);
+
+      // Product is "new" if it appeared in price history within the last 7 days
+      const isNew = entries.length > 0
+        ? entries[0].date >= sevenDaysAgoStr
+        : parseDate(bestPrice.updated).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
 
       // Deduplicate by retailer (keep lowest price per retailer), exclude the best retailer
       const allRetailers = byGroup.get(group_key) ?? [];
@@ -183,7 +191,8 @@ function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
         price_change_7d: sevenDayChange,
         history: entries,
         image_url: bestPrice.image_url ?? "",
-        other_retailers: otherRetailers
+        other_retailers: otherRetailers,
+        is_new: isNew
       };
 
       return product;

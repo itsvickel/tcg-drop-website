@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Sparkline from "./Sparkline";
+import PriceHistoryModal from "./PriceHistoryModal";
 import styles from "../styles/Card.module.css";
 
 type HistoryEntry = {
@@ -28,6 +29,7 @@ export type Product = {
   history: HistoryEntry[];
   image_url: string;
   other_retailers: RetailerPrice[];
+  is_new: boolean;
 };
 
 type ProductCardProps = {
@@ -56,8 +58,7 @@ function stripTrackingParams(input: string): string {
   try {
     const url = new URL(input);
     const params = url.searchParams;
-    const keys = [...params.keys()];
-    for (const key of keys) {
+    for (const key of [...params.keys()]) {
       if (key === "ref" || key.startsWith("utm_") || key === "fbclid" || key === "gclid") {
         params.delete(key);
       }
@@ -86,6 +87,7 @@ function getShippingThreshold(retailer: string): string {
 
 export default function ProductCard({ product, onRetailerClick, activeRetailer }: ProductCardProps) {
   const [showCompare, setShowCompare] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const isAllTimeLow = product.price <= product.all_time_low + 0.0001;
   const cleanUrl = stripTrackingParams(product.url);
@@ -93,95 +95,124 @@ export default function ProductCard({ product, onRetailerClick, activeRetailer }
   const hasWeeklyChange = weeklyChange !== null;
   const hasOthers = product.other_retailers.length > 0;
   const isActiveFilter = activeRetailer === product.retailer;
+  const hasHistory = product.history.length >= 2;
 
   return (
-    <article
-      className={`${styles.card} ${isAllTimeLow ? styles.allTimeLowCard : ""} ${
-        product.is_preorder ? styles.preorderTopBorder : ""
-      }`}
-    >
-      {product.image_url && (
-        <div className={styles.imageWrap}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={product.image_url} alt={product.name} className={styles.productImage} loading="lazy" />
-        </div>
-      )}
-
-      <div className={styles.badges}>
-        {isAllTimeLow && <span className={`${styles.badge} ${styles.badgeAllTimeLow}`}>ALL-TIME LOW</span>}
-        {product.is_preorder && <span className={`${styles.badge} ${styles.badgePreorder}`}>PRE-ORDER</span>}
-        {hasWeeklyChange && weeklyChange < 0 && (
-          <span className={`${styles.badge} ${styles.badgeDrop}`}>{`↓${Math.abs(weeklyChange).toFixed(0)}% this week`}</span>
+    <>
+      <article
+        className={`${styles.card} ${isAllTimeLow ? styles.allTimeLowCard : ""} ${
+          product.is_preorder ? styles.preorderTopBorder : ""
+        }`}
+      >
+        {product.image_url && (
+          <div className={styles.imageWrap}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={product.image_url} alt={product.name} className={styles.productImage} loading="lazy" />
+          </div>
         )}
-        {hasWeeklyChange && weeklyChange > 0 && (
-          <span className={`${styles.badge} ${styles.badgeRise}`}>{`↑${Math.abs(weeklyChange).toFixed(0)}%`}</span>
-        )}
-      </div>
 
-      <h3 className={styles.productName}>{product.name}</h3>
-      <p className={styles.price}>{`$${product.price.toFixed(2)} CAD`}</p>
-
-      {!isAllTimeLow && (
-        <p className={styles.lowNote}>{`All-time low: $${product.all_time_low.toFixed(2)} CAD`}</p>
-      )}
-
-      <div className={styles.retailerRow}>
-        <button
-          className={`${styles.retailerChip} ${isActiveFilter ? styles.retailerChipActive : ""}`}
-          onClick={() => onRetailerClick?.(product.retailer)}
-          title={isActiveFilter ? `Remove filter: ${product.retailer}` : `Filter by ${product.retailer}`}
-          type="button"
-        >
-          {product.retailer}
-        </button>
-        <span className={styles.shippingLabel}>{getShippingThreshold(product.retailer)}</span>
-      </div>
-
-      <Sparkline points={product.history} />
-
-      <div className={styles.footerRow}>
-        <span className={styles.updatedLabel}>{`Updated ${formatUpdatedDate(product.updated)}`}</span>
-        <a className={styles.buyButton} href={cleanUrl} target="_blank" rel="noreferrer">
-          Buy Now →
-        </a>
-      </div>
-
-      {hasOthers && (
-        <div className={styles.compareSection}>
-          <button
-            className={styles.compareToggle}
-            onClick={() => setShowCompare((v) => !v)}
-            aria-expanded={showCompare}
-            type="button"
-          >
-            {showCompare
-              ? "Hide prices ▲"
-              : `Compare ${product.other_retailers.length} more store${product.other_retailers.length > 1 ? "s" : ""} ▼`}
-          </button>
-
-          {showCompare && (
-            <ul className={styles.compareList}>
-              {product.other_retailers.map((r) => (
-                <li key={r.retailer} className={styles.compareRow}>
-                  <span className={`${styles.compareStock} ${r.in_stock ? styles.inStock : styles.outOfStock}`}>
-                    {r.in_stock ? "✓" : "✗"}
-                  </span>
-                  <span className={styles.compareRetailer}>{r.retailer}</span>
-                  <span className={styles.comparePrice}>{`$${r.price.toFixed(2)}`}</span>
-                  <a
-                    href={stripTrackingParams(r.url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={styles.compareLink}
-                  >
-                    Buy →
-                  </a>
-                </li>
-              ))}
-            </ul>
+        <div className={styles.badges}>
+          {product.is_new && <span className={`${styles.badge} ${styles.badgeNew}`}>NEW</span>}
+          {isAllTimeLow && <span className={`${styles.badge} ${styles.badgeAllTimeLow}`}>ALL-TIME LOW</span>}
+          {product.is_preorder && <span className={`${styles.badge} ${styles.badgePreorder}`}>PRE-ORDER</span>}
+          {hasWeeklyChange && weeklyChange < 0 && (
+            <span className={`${styles.badge} ${styles.badgeDrop}`}>{`↓${Math.abs(weeklyChange).toFixed(0)}% this week`}</span>
+          )}
+          {hasWeeklyChange && weeklyChange > 0 && (
+            <span className={`${styles.badge} ${styles.badgeRise}`}>{`↑${Math.abs(weeklyChange).toFixed(0)}%`}</span>
           )}
         </div>
+
+        <h3 className={styles.productName}>{product.name}</h3>
+        <p className={styles.price}>{`$${product.price.toFixed(2)} CAD`}</p>
+
+        {!isAllTimeLow && (
+          <p className={styles.lowNote}>{`All-time low: $${product.all_time_low.toFixed(2)} CAD`}</p>
+        )}
+
+        <div className={styles.retailerRow}>
+          <button
+            className={`${styles.retailerChip} ${isActiveFilter ? styles.retailerChipActive : ""}`}
+            onClick={() => onRetailerClick?.(product.retailer)}
+            title={isActiveFilter ? `Remove filter: ${product.retailer}` : `Filter by ${product.retailer}`}
+            type="button"
+          >
+            {product.retailer}
+          </button>
+          <span className={styles.shippingLabel}>{getShippingThreshold(product.retailer)}</span>
+        </div>
+
+        <div
+          className={hasHistory ? styles.sparklineButton : undefined}
+          onClick={() => hasHistory && setShowHistory(true)}
+          role={hasHistory ? "button" : undefined}
+          tabIndex={hasHistory ? 0 : undefined}
+          onKeyDown={hasHistory ? (e) => e.key === "Enter" && setShowHistory(true) : undefined}
+          title={hasHistory ? "Click to see full price history" : undefined}
+        >
+          <Sparkline points={product.history} />
+        </div>
+
+        <div className={styles.footerRow}>
+          <span className={styles.updatedLabel}>{`Updated ${formatUpdatedDate(product.updated)}`}</span>
+          <a className={styles.buyButton} href={cleanUrl} target="_blank" rel="noreferrer">
+            Buy Now →
+          </a>
+        </div>
+
+        {hasOthers && (
+          <div className={styles.compareSection}>
+            <button
+              className={styles.compareToggle}
+              onClick={() => setShowCompare((v) => !v)}
+              aria-expanded={showCompare}
+              type="button"
+            >
+              {showCompare
+                ? "Hide prices ▲"
+                : `Compare ${product.other_retailers.length} more store${product.other_retailers.length > 1 ? "s" : ""} ▼`}
+            </button>
+
+            {showCompare && (
+              <ul className={styles.compareList}>
+                {product.other_retailers.map((r) => {
+                  const delta = r.price - product.price;
+                  return (
+                    <li key={r.retailer} className={styles.compareRow}>
+                      <span className={`${styles.compareStock} ${r.in_stock ? styles.inStock : styles.outOfStock}`}>
+                        {r.in_stock ? "✓" : "✗"}
+                      </span>
+                      <span className={styles.compareRetailer}>{r.retailer}</span>
+                      <span className={styles.comparePrice}>
+                        <span>${r.price.toFixed(2)}</span>
+                        {delta > 0.005 && (
+                          <span className={styles.compareDelta}>{`+$${delta.toFixed(2)}`}</span>
+                        )}
+                      </span>
+                      <a
+                        href={stripTrackingParams(r.url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.compareLink}
+                      >
+                        Buy →
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </article>
+
+      {showHistory && (
+        <PriceHistoryModal
+          name={product.name}
+          history={product.history}
+          onClose={() => setShowHistory(false)}
+        />
       )}
-    </article>
+    </>
   );
 }

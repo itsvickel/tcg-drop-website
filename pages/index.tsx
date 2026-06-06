@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import useSWR from "swr";
 import ProductCard, { Product } from "../components/ProductCard";
 import styles from "../styles/Home.module.css";
@@ -10,6 +11,7 @@ type ApiResponse = {
 };
 
 type SortOption = "price_asc" | "price_desc" | "drop" | "updated" | "name";
+const VALID_SORTS: SortOption[] = ["price_asc", "price_desc", "drop", "updated", "name"];
 
 const REFRESH_MS = 5 * 60 * 1000;
 const PAGE_SIZE = 48;
@@ -35,6 +37,8 @@ function isAllTimeLow(product: Product): boolean {
 }
 
 export default function HomePage() {
+  const router = useRouter();
+
   const { data, error, isLoading } = useSWR<ApiResponse>("/api/products", fetcher, {
     refreshInterval: REFRESH_MS,
     revalidateOnFocus: false
@@ -47,10 +51,37 @@ export default function HomePage() {
   const [dealsOnly, setDealsOnly] = useState(false);
   const [lowOnly, setLowOnly] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [urlReady, setUrlReady] = useState(false);
+
+  // ── Sync from URL on first load ──────────────────────────────────────────
+  useEffect(() => {
+    if (!router.isReady) return;
+    const { q, s, r, p, d, l } = router.query;
+    if (typeof q === "string") setQuery(q);
+    if (typeof s === "string" && VALID_SORTS.includes(s as SortOption)) setSort(s as SortOption);
+    if (typeof r === "string") setRetailer(r);
+    if (p === "1") setHidePreorders(true);
+    if (d === "1") setDealsOnly(true);
+    if (l === "1") setLowOnly(true);
+    setUrlReady(true);
+  }, [router.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Write filters back to URL (shallow — no page reload) ─────────────────
+  useEffect(() => {
+    if (!urlReady) return;
+    const params: Record<string, string> = {};
+    if (query) params.q = query;
+    if (sort !== "price_asc") params.s = sort;
+    if (retailer !== "all") params.r = retailer;
+    if (hidePreorders) params.p = "1";
+    if (dealsOnly) params.d = "1";
+    if (lowOnly) params.l = "1";
+    void router.replace({ query: params }, undefined, { shallow: true });
+  }, [query, sort, retailer, hidePreorders, dealsOnly, lowOnly, urlReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const products = data?.products ?? [];
 
-  // Reset pagination when any filter changes
+  // Reset pagination when filters change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [query, sort, retailer, hidePreorders, dealsOnly, lowOnly]);
@@ -69,10 +100,12 @@ export default function HomePage() {
   const stats = useMemo(() => {
     const deals = products.filter((p) => p.price_change_7d !== null && p.price_change_7d <= -5).length;
     const allTimeLow = products.filter((p) => isAllTimeLow(p)).length;
+    const isNew = products.filter((p) => p.is_new).length;
     return {
       totalProducts: products.length,
       deals,
       allTimeLow,
+      isNew,
       retailers: new Set(products.map((p) => p.retailer)).size
     };
   }, [products]);
@@ -108,6 +141,14 @@ export default function HomePage() {
     setRetailer((prev) => (prev === name ? "all" : name));
   }
 
+  function clearFilters() {
+    setQuery("");
+    setRetailer("all");
+    setHidePreorders(false);
+    setDealsOnly(false);
+    setLowOnly(false);
+  }
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -123,16 +164,20 @@ export default function HomePage() {
 
       <section className={styles.statsBar}>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Total Products</span>
+          <span className={styles.statLabel}>Products</span>
           <strong>{stats.totalProducts}</strong>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Deals (7d drop &gt; 5%)</span>
+          <span className={styles.statLabel}>Deals (7d drop)</span>
           <strong>{stats.deals}</strong>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>At All-Time Low</span>
+          <span className={styles.statLabel}>All-Time Low</span>
           <strong>{stats.allTimeLow}</strong>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>New This Week</span>
+          <strong>{stats.isNew}</strong>
         </div>
         <div className={styles.statCard}>
           <span className={styles.statLabel}>Retailers</span>
@@ -142,9 +187,9 @@ export default function HomePage() {
 
       <section className={styles.controls}>
         <input
-          className={styles.controlInput}
+          className={`${styles.controlInput} ${styles.controlSearch}`}
           type="text"
-          placeholder="Search products"
+          placeholder="Search products…"
           aria-label="Search products"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -164,7 +209,7 @@ export default function HomePage() {
         </select>
 
         <select
-          className={styles.controlInput}
+          className={`${styles.controlInput} ${styles.controlRetailer}`}
           value={retailer}
           onChange={(e) => setRetailer(e.target.value)}
           aria-label="Filter by retailer"
@@ -223,18 +268,7 @@ export default function HomePage() {
         <div className={styles.emptyState}>
           <p className={styles.emptyTitle}>No products match your filters</p>
           <p className={styles.emptyHint}>Try adjusting the search or clearing some toggles.</p>
-          <button
-            className={styles.clearButton}
-            onClick={() => {
-              setQuery("");
-              setRetailer("all");
-              setHidePreorders(false);
-              setDealsOnly(false);
-              setLowOnly(false);
-            }}
-          >
-            Clear all filters
-          </button>
+          <button className={styles.clearButton} onClick={clearFilters}>Clear all filters</button>
         </div>
       ) : (
         <>
