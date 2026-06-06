@@ -1,0 +1,174 @@
+.card {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: #4d7fb5;
+  box-shadow: 0 12px 24px rgba(56, 139, 253, 0.18);
+}
+
+.preorderTopBorder {
+  border-top: 3px solid var(--amber);
+}
+
+.allTimeLowCard {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px rgba(63, 185, 80, 0.35), 0 0 22px rgba(63, 185, 80, 0.22);
+}
+
+.imageWrap {
+  width: 100%;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.productImage {
+  max-width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  letter-spacing: 0.02em;
+}
+
+.badgeAllTimeLow {
+  color: #d2f9d7;
+  background: rgba(63, 185, 80, 0.16);
+  border: 1px solid rgba(63, 185, 80, 0.4);
+}
+
+.badgePreorder {
+  color: #ffe2b3;
+  background: rgba(210, 153, 34, 0.14);
+  border: 1px solid rgba(210, 153, 34, 0.45);
+}
+
+.badgeDrop {
+  color: #d2f9d7;
+  background: rgba(63, 185, 80, 0.16);
+}
+
+.badgeRise {
+  color: #ffd6d3;
+  background: rgba(248, 81, 73, 0.16);
+}
+
+.productName {
+  margin: 0;
+  color: #f0f6fc;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.7em;
+}
+
+.price {
+  margin: 0;
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 1.44rem;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.lowNote {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.retailerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.retailerChip {
+  border-radius: 999px;
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  background: rgba(56, 139, 253, 0.08);
+  color: #b8dcff;
+  font-size: 0.78rem;
+  padding: 3px 10px;
+}
+
+.shippingLabel {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.sparklineWrap {
+  margin-top: 2px;
+}
+
+.sparklineEmpty {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  border: 1px dashed rgba(139, 148, 158, 0.3);
+  border-radius: 8px;
+}
+
+.footerRow {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.updatedLabel {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.buyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(63, 185, 80, 0.45);
+  background: linear-gradient(180deg, rgba(63, 185, 80, 0.28), rgba(46, 160, 67, 0.3));
+  color: #d2f9d7;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.buyButton:hover {
+  filter: brightness(1.12);
+}
