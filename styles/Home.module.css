@@ -90,6 +90,29 @@
   color: var(--muted);
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.wishlistNav {
+  font-size: 0.88rem;
+  color: #f85149;
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.25);
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.wishlistNav:hover {
+  background: rgba(248, 81, 73, 0.15);
+  border-color: rgba(248, 81, 73, 0.45);
+}
+
 .liveIndicator {
   display: inline-flex;
   align-items: center;

@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import AlertModal from "./AlertModal";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
@@ -87,6 +88,8 @@ type Props = {
 };
 
 export default function ProductDetailModal({ product, onClose }: Props) {
+  const [showAlert, setShowAlert] = useState(false);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
@@ -130,9 +133,14 @@ export default function ProductDetailModal({ product, onClose }: Props) {
               <p className={styles.bestRetailer}>Best price @ {product.retailer}</p>
             </div>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} type="button" aria-label="Close">
-            ✕
-          </button>
+          <div className={styles.headerActions}>
+            <button className={styles.alertBtn} onClick={() => setShowAlert(true)} type="button" aria-label="Set price alert" title="Set price alert">
+              🔔 Set alert
+            </button>
+            <button className={styles.closeBtn} onClick={onClose} type="button" aria-label="Close">
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -198,7 +206,7 @@ export default function ProductDetailModal({ product, onClose }: Props) {
           {/* Price history chart */}
           {sorted.length >= 2 && (
             <section className={styles.section}>
-              <h3 className={styles.sectionTitle}>Price History — 30 Days</h3>
+              <h3 className={styles.sectionTitle}>Price History — 90 Days</h3>
               <div className={styles.chartWrap}>
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={sorted} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -245,7 +253,7 @@ export default function ProductDetailModal({ product, onClose }: Props) {
                   <span>Price</span>
                   <span>Retailer</span>
                 </div>
-                {[...sorted].reverse().slice(0, 20).map((entry, i) => (
+                {[...sorted].reverse().slice(0, 90).map((entry, i) => (
                   <div key={i} className={styles.historyRow}>
                     <span className={styles.historyDate}>
                       {new Date(entry.date).toLocaleDateString("en-CA", {
@@ -263,6 +271,10 @@ export default function ProductDetailModal({ product, onClose }: Props) {
 
         </div>
       </div>
+
+      {showAlert && (
+        <AlertModal product={product} onClose={() => setShowAlert(false)} />
+      )}
     </div>
   );
 }

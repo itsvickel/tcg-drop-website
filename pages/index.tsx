@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import useSWR from "swr";
 import ProductCard, { Product } from "../components/ProductCard";
 import Footer from "../components/Footer";
+import NewsletterSignup from "../components/NewsletterSignup";
 import { useWishlist } from "../hooks/useWishlist";
 import styles from "../styles/Home.module.css";
 
@@ -12,8 +14,8 @@ type ApiResponse = {
   retailers_count: number;
 };
 
-type SortOption = "price_asc" | "price_desc" | "drop" | "updated" | "name";
-const VALID_SORTS: SortOption[] = ["price_asc", "price_desc", "drop", "updated", "name"];
+type SortOption = "price_asc" | "price_desc" | "drop" | "atl_pct" | "updated" | "name";
+const VALID_SORTS: SortOption[] = ["price_asc", "price_desc", "drop", "atl_pct", "updated", "name"];
 
 const REFRESH_MS = 5 * 60 * 1000;
 const PAGE_SIZE  = 48;
@@ -32,6 +34,12 @@ function byLargestDrop(a: Product, b: Product): number {
   const aDrop = a.price_change_7d ?? Number.POSITIVE_INFINITY;
   const bDrop = b.price_change_7d ?? Number.POSITIVE_INFINITY;
   return aDrop - bDrop;
+}
+
+function byAllTimeLowPct(a: Product, b: Product): number {
+  const aPct = a.all_time_low > 0 ? (a.price - a.all_time_low) / a.all_time_low : 0;
+  const bPct = b.all_time_low > 0 ? (b.price - b.all_time_low) / b.all_time_low : 0;
+  return aPct - bPct;
 }
 
 function isAtAllTimeLow(product: Product): boolean {
@@ -60,6 +68,7 @@ export default function HomePage() {
   const [hidePreorders, setHidePreorders] = useState(false);
   const [dealsOnly,     setDealsOnly]     = useState(false);
   const [lowOnly,       setLowOnly]       = useState(false);
+  const [newOnly,       setNewOnly]       = useState(false);
   const [wishlistOnly,  setWishlistOnly]  = useState(false);
   const [visibleCount,  setVisibleCount]  = useState(PAGE_SIZE);
   const [urlReady,      setUrlReady]      = useState(false);
@@ -67,7 +76,7 @@ export default function HomePage() {
   // ── Sync from URL on first load ──────────────────────────────────────────
   useEffect(() => {
     if (!router.isReady) return;
-    const { q, s, r, lang, type, set, pmin, pmax, stock, p, d, l, w } = router.query;
+    const { q, s, r, lang, type, set, pmin, pmax, stock, p, d, l, n, w } = router.query;
     if (typeof q    === "string") setQuery(q);
     if (typeof s    === "string" && VALID_SORTS.includes(s as SortOption)) setSort(s as SortOption);
     if (typeof r    === "string") setRetailer(r);
@@ -80,6 +89,7 @@ export default function HomePage() {
     if (p     === "1") setHidePreorders(true);
     if (d     === "1") setDealsOnly(true);
     if (l     === "1") setLowOnly(true);
+    if (n     === "1") setNewOnly(true);
     if (w     === "1") setWishlistOnly(true);
     setUrlReady(true);
   }, [router.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -100,10 +110,11 @@ export default function HomePage() {
     if (hidePreorders)      params.p     = "1";
     if (dealsOnly)          params.d     = "1";
     if (lowOnly)            params.l     = "1";
+    if (newOnly)            params.n     = "1";
     if (wishlistOnly)       params.w     = "1";
     void router.replace({ query: params }, undefined, { shallow: true });
   }, [query, sort, retailer, language, productType, setName, priceMin, priceMax, // eslint-disable-line react-hooks/exhaustive-deps
-      inStockOnly, hidePreorders, dealsOnly, lowOnly, wishlistOnly, urlReady]);
+      inStockOnly, hidePreorders, dealsOnly, lowOnly, newOnly, wishlistOnly, urlReady]);
 
   const products = data?.products ?? [];
 
@@ -111,7 +122,7 @@ export default function HomePage() {
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [query, sort, retailer, language, productType, setName, priceMin, priceMax,
-      inStockOnly, hidePreorders, dealsOnly, lowOnly, wishlistOnly]);
+      inStockOnly, hidePreorders, dealsOnly, lowOnly, newOnly, wishlistOnly]);
 
   // ── Dropdown option lists (derived from loaded products) ─────────────────
   const retailers = useMemo(
@@ -130,16 +141,34 @@ export default function HomePage() {
     [products]
   );
 
+  const languageCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of products) if (p.language) counts[p.language] = (counts[p.language] ?? 0) + 1;
+    return counts;
+  }, [products]);
+
   const productTypes = useMemo(
     () =>
       Array.from(new Set(products.map((p) => p.product_type).filter((t) => Boolean(t) && t !== "Other"))).sort(),
     [products]
   );
 
+  const productTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of products) if (p.product_type && p.product_type !== "Other") counts[p.product_type] = (counts[p.product_type] ?? 0) + 1;
+    return counts;
+  }, [products]);
+
   const setNames = useMemo(
     () => Array.from(new Set(products.map((p) => p.set_name).filter(Boolean))).sort(),
     [products]
   );
+
+  const setNameCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of products) if (p.set_name) counts[p.set_name] = (counts[p.set_name] ?? 0) + 1;
+    return counts;
+  }, [products]);
 
   // ── Stats ────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -171,6 +200,7 @@ export default function HomePage() {
     if (hidePreorders)         next = next.filter((p) => !p.is_preorder);
     if (dealsOnly)             next = next.filter((p) => p.price_change_7d !== null && p.price_change_7d <= -5);
     if (lowOnly)               next = next.filter((p) => isAtAllTimeLow(p));
+    if (newOnly)               next = next.filter((p) => p.is_new);
     if (wishlistOnly)          next = next.filter((p) => wishlist.has(p.group_key));
 
     const minP = priceMin ? parseFloat(priceMin) : null;
@@ -181,6 +211,7 @@ export default function HomePage() {
     switch (sort) {
       case "price_desc": next.sort((a, b) => b.price - a.price); break;
       case "drop":       next.sort(byLargestDrop); break;
+      case "atl_pct":    next.sort(byAllTimeLowPct); break;
       case "updated":    next.sort(byUpdatedDesc); break;
       case "name":       next.sort((a, b) => a.name.localeCompare(b.name)); break;
       default:           next.sort((a, b) => a.price - b.price);
@@ -188,7 +219,7 @@ export default function HomePage() {
 
     return next;
   }, [products, query, retailer, language, productType, setName, priceMin, priceMax,
-      inStockOnly, hidePreorders, dealsOnly, lowOnly, wishlistOnly, wishlist, sort]);
+      inStockOnly, hidePreorders, dealsOnly, lowOnly, newOnly, wishlistOnly, wishlist, sort]);
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
   const hasMore         = visibleCount < filteredProducts.length;
@@ -197,7 +228,7 @@ export default function HomePage() {
   const activeFilterCount = [
     query, retailer !== "all", language !== "all", productType !== "all",
     setName !== "all", priceMin, priceMax, inStockOnly, hidePreorders,
-    dealsOnly, lowOnly, wishlistOnly,
+    dealsOnly, lowOnly, newOnly, wishlistOnly,
   ].filter(Boolean).length;
 
   function handleRetailerClick(name: string) {
@@ -216,6 +247,7 @@ export default function HomePage() {
     setHidePreorders(false);
     setDealsOnly(false);
     setLowOnly(false);
+    setNewOnly(false);
     setWishlistOnly(false);
   }
 
@@ -247,6 +279,7 @@ export default function HomePage() {
               <span>Retailers</span>
             </div>
           </div>
+          <NewsletterSignup />
         </div>
       </section>
 
@@ -257,9 +290,16 @@ export default function HomePage() {
             <h2 className={styles.title}>Pokemon TCG Tracker</h2>
             <p className={styles.subtitle}>Live Canadian pricing</p>
           </div>
-          <div className={styles.liveIndicator}>
-            <span className={styles.pulseDot} />
-            <span>Live</span>
+          <div className={styles.headerRight}>
+            {wishlist.count > 0 && (
+              <Link href="/wishlist" className={styles.wishlistNav}>
+                ♥ My List{` (${wishlist.count})`}
+              </Link>
+            )}
+            <div className={styles.liveIndicator}>
+              <span className={styles.pulseDot} />
+              <span>Live</span>
+            </div>
           </div>
         </header>
 
@@ -308,7 +348,8 @@ export default function HomePage() {
             >
               <option value="price_asc">Price ↑ Low to High</option>
               <option value="price_desc">Price ↓ High to Low</option>
-              <option value="drop">Biggest Drop</option>
+              <option value="drop">Biggest 7-Day Drop</option>
+              <option value="atl_pct">Closest to All-Time Low</option>
               <option value="updated">Recently Updated</option>
               <option value="name">Name A–Z</option>
             </select>
@@ -337,7 +378,7 @@ export default function HomePage() {
             >
               <option value="all">All languages</option>
               {languages.map((l) => (
-                <option key={l} value={l}>{l}</option>
+                <option key={l} value={l}>{l}{languageCounts[l] ? ` (${languageCounts[l]})` : ""}</option>
               ))}
             </select>
             <select
@@ -348,7 +389,7 @@ export default function HomePage() {
             >
               <option value="all">All product types</option>
               {productTypes.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>{t}{productTypeCounts[t] ? ` (${productTypeCounts[t]})` : ""}</option>
               ))}
             </select>
             <select
@@ -359,7 +400,7 @@ export default function HomePage() {
             >
               <option value="all">All sets / expansions</option>
               {setNames.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>{s}{setNameCounts[s] ? ` (${setNameCounts[s]})` : ""}</option>
               ))}
             </select>
             <div className={styles.priceRange}>
@@ -419,6 +460,14 @@ export default function HomePage() {
                 onChange={(e) => setLowOnly(e.target.checked)}
               />
               All-time low only
+            </label>
+            <label className={styles.toggle}>
+              <input
+                type="checkbox"
+                checked={newOnly}
+                onChange={(e) => setNewOnly(e.target.checked)}
+              />
+              New arrivals
             </label>
             <label className={`${styles.toggle} ${styles.toggleWishlist}`}>
               <input

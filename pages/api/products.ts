@@ -40,6 +40,15 @@ type HistoryItem = {
 
 type HistoryJson = Record<string, HistoryItem>;
 
+type StockEvent = {
+  group_key: string;
+  timestamp: string;
+};
+
+type StockChangesJson = {
+  events: StockEvent[];
+};
+
 export type RetailerPrice = {
   retailer: string;
   price: number;
@@ -62,6 +71,7 @@ export type Product = {
   other_retailers: RetailerPrice[];
   is_new: boolean;
   in_stock: boolean;
+  back_in_stock: boolean;
   language: string;
   product_type: string;
   set_name: string;
@@ -239,8 +249,14 @@ function extractSetName(name: string): string {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
+function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: StockChangesJson): ApiResponse {
   const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const twoDaysAgoMs    = Date.now() - 48 * 60 * 60 * 1000;
+  const recentBackInStock = new Set(
+    stockChanges.events
+      .filter(e => new Date(e.timestamp).getTime() >= twoDaysAgoMs)
+      .map(e => e.group_key)
+  );
 
   // Build group_key → all retailer entries map from raw products
   const byGroup = new Map<string, RetailerPrice[]>();
@@ -296,6 +312,7 @@ function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
         other_retailers: otherRetailers,
         is_new: isNew,
         in_stock: inStock,
+        back_in_stock: recentBackInStock.has(group_key),
         language: extractLanguage(bestPrice.name),
         product_type: extractProductType(bestPrice.name),
         set_name: extractSetName(bestPrice.name),
@@ -335,12 +352,13 @@ export default async function handler(
   }
 
   try {
-    const [state, history] = await Promise.all([
+    const [state, history, stockChanges] = await Promise.all([
       fetchJson<StateJson>(repo, token, "state.json"),
-      fetchJson<HistoryJson>(repo, token, "price_history.json").catch(() => ({} as HistoryJson))
+      fetchJson<HistoryJson>(repo, token, "price_history.json").catch(() => ({} as HistoryJson)),
+      fetchJson<StockChangesJson>(repo, token, "stock_changes.json").catch(() => ({ events: [] } as StockChangesJson)),
     ]);
 
-    const payload = toApiResponse(state, history);
+    const payload = toApiResponse(state, history, stockChanges);
     responseCache = {
       expiresAt: Date.now() + CACHE_TTL_MS,
       payload

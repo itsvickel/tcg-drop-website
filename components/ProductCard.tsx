@@ -31,6 +31,7 @@ export type Product = {
   other_retailers: RetailerPrice[];
   is_new: boolean;
   in_stock: boolean;
+  back_in_stock: boolean;
   language: string;
   product_type: string;
   set_name: string;
@@ -61,6 +62,11 @@ const SHIPPING_THRESHOLDS: Record<string, string> = {
   Meeplemart:           "Free $75+",
   "Carta Magica":       "Free $100+",
   "Epic Loot":          "Free $75+",
+  "Dragon Card & Game": "Check site",
+  "Untapped Games":     "Check site",
+  "The End Games":      "Check site",
+  "Border City Games":  "Check site",
+  "Ivory Tower Comics": "Check site",
 };
 
 const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000;
@@ -111,18 +117,23 @@ export default function ProductCard({
   const weeklyChange   = product.price_change_7d;
   const hasWeeklyChange = weeklyChange !== null;
   const isActiveFilter = activeRetailer === product.retailer;
-  const hasHistory     = product.history.length >= 2;
-  const hasOthers      = product.other_retailers.length > 0;
   const isStale        = Date.now() - new Date(product.updated).getTime() > STALE_THRESHOLD_MS;
 
   return (
     <>
+      {/* Whole card is clickable — stop propagation on interactive children */}
       <article
         className={[
           styles.card,
-          isAllTimeLow    ? styles.allTimeLowCard    : "",
-          product.is_preorder ? styles.preorderTopBorder : "",
+          styles.cardClickable,
+          isAllTimeLow         ? styles.allTimeLowCard    : "",
+          product.is_preorder  ? styles.preorderTopBorder : "",
         ].filter(Boolean).join(" ")}
+        onClick={() => setShowDetail(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && setShowDetail(true)}
+        aria-label={`View details for ${product.name}`}
       >
         {/* Image */}
         {product.image_url && (
@@ -140,9 +151,10 @@ export default function ProductCard({
         {/* Badges row + wishlist heart */}
         <div className={styles.cardTopRow}>
           <div className={styles.badges}>
-            {product.is_new     && <span className={`${styles.badge} ${styles.badgeNew}`}>NEW</span>}
-            {isAllTimeLow       && <span className={`${styles.badge} ${styles.badgeAllTimeLow}`}>ALL-TIME LOW</span>}
-            {product.is_preorder && <span className={`${styles.badge} ${styles.badgePreorder}`}>PRE-ORDER</span>}
+            {product.is_new        && <span className={`${styles.badge} ${styles.badgeNew}`}>NEW</span>}
+            {product.back_in_stock && <span className={`${styles.badge} ${styles.badgeBackInStock}`}>BACK IN STOCK</span>}
+            {isAllTimeLow          && <span className={`${styles.badge} ${styles.badgeAllTimeLow}`}>ALL-TIME LOW</span>}
+            {product.is_preorder   && <span className={`${styles.badge} ${styles.badgePreorder}`}>PRE-ORDER</span>}
             {hasWeeklyChange && weeklyChange! < 0 && (
               <span className={`${styles.badge} ${styles.badgeDrop}`}>
                 {`↓${Math.abs(weeklyChange!).toFixed(0)}% this week`}
@@ -157,7 +169,7 @@ export default function ProductCard({
           {onToggleWishlist && (
             <button
               className={`${styles.wishlistBtn} ${isWishlisted ? styles.wishlistBtnActive : ""}`}
-              onClick={() => onToggleWishlist(product.group_key)}
+              onClick={(e) => { e.stopPropagation(); onToggleWishlist(product.group_key); }}
               type="button"
               aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
               title={isWishlisted ? "Remove from My List" : "Save to My List"}
@@ -169,6 +181,20 @@ export default function ProductCard({
 
         {/* Name & price */}
         <h3 className={styles.productName}>{product.name}</h3>
+
+        {/* Info chips: language · product type · set */}
+        <div className={styles.infoChips}>
+          {product.language !== "English" && (
+            <span className={`${styles.infoChip} ${styles.infoChipLang}`}>{product.language}</span>
+          )}
+          {product.product_type && product.product_type !== "Other" && (
+            <span className={`${styles.infoChip} ${styles.infoChipType}`}>{product.product_type}</span>
+          )}
+          {product.set_name && (
+            <span className={`${styles.infoChip} ${styles.infoChipSet}`}>{product.set_name}</span>
+          )}
+        </div>
+
         <p className={styles.price}>{`$${product.price.toFixed(2)} CAD`}</p>
 
         {!isAllTimeLow && (
@@ -181,7 +207,7 @@ export default function ProductCard({
         <div className={styles.retailerRow}>
           <button
             className={`${styles.retailerChip} ${isActiveFilter ? styles.retailerChipActive : ""}`}
-            onClick={() => onRetailerClick?.(product.retailer)}
+            onClick={(e) => { e.stopPropagation(); onRetailerClick?.(product.retailer); }}
             title={isActiveFilter ? `Remove filter: ${product.retailer}` : `Filter by ${product.retailer}`}
             type="button"
           >
@@ -190,18 +216,7 @@ export default function ProductCard({
           <span className={styles.shippingLabel}>{getShippingThreshold(product.retailer)}</span>
         </div>
 
-        {/* Sparkline — click opens detail modal */}
-        <div
-          className={hasHistory ? styles.sparklineButton : undefined}
-          onClick={() => hasHistory && setShowDetail(true)}
-          role={hasHistory ? "button" : undefined}
-          tabIndex={hasHistory ? 0 : undefined}
-          onKeyDown={hasHistory ? (e) => e.key === "Enter" && setShowDetail(true) : undefined}
-          title={hasHistory ? "Click to see full price history" : undefined}
-          aria-label={hasHistory ? "View price history" : undefined}
-        >
-          <Sparkline points={product.history} />
-        </div>
+        <Sparkline points={product.history} />
 
         {/* Footer row */}
         <div className={styles.footerRow}>
@@ -209,23 +224,17 @@ export default function ProductCard({
             {isStale ? "⚠ " : ""}
             {`Updated ${formatUpdatedDate(product.updated)}`}
           </span>
-          <a className={styles.buyButton} href={cleanUrl} target="_blank" rel="noreferrer">
+          {/* eslint-disable-next-line jsx-a11y/anchor-has-content */}
+          <a
+            className={styles.buyButton}
+            href={cleanUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
             Buy Now →
           </a>
         </div>
-
-        {/* Details / more stores button */}
-        {(hasOthers || hasHistory) && (
-          <button
-            className={styles.detailsBtn}
-            onClick={() => setShowDetail(true)}
-            type="button"
-          >
-            {hasOthers
-              ? `+${product.other_retailers.length} more store${product.other_retailers.length > 1 ? "s" : ""} · View details →`
-              : "View price history →"}
-          </button>
-        )}
       </article>
 
       {showDetail && (

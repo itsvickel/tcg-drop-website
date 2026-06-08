@@ -1,0 +1,99 @@
+.wrap {
+  margin-top: 28px;
+}
+
+.label {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.bell {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.form {
+  display: flex;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.input {
+  flex: 1;
+  background: rgba(13, 17, 23, 0.8);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: "Syne", sans-serif;
+  font-size: 0.9rem;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+.btn {
+  background: rgba(56, 139, 253, 0.15);
+  border: 1px solid rgba(88, 166, 255, 0.45);
+  color: var(--blue);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-family: "Syne", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: rgba(56, 139, 253, 0.28);
+  border-color: var(--blue);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.successBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(63, 185, 80, 0.08);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  max-width: 420px;
+}
+
+.successIcon {
+  color: var(--green);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.successText {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #c3f0c8;
+  line-height: 1.5;
+}
+
+.errorText {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--red);
+}
