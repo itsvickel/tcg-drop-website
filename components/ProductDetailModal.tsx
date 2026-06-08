@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import type { Product } from "./ProductCard";
 import styles from "../styles/ProductDetail.module.css";
+import DealScoreBreakdown from "./DealScoreBreakdown";
 import { SHIPPING_THRESHOLDS } from "../lib/shipping";
 
 
@@ -159,9 +160,7 @@ export default function ProductDetailModal({ product, onClose, autoOpenAlert }: 
             )}
             <div className={styles.stat}>
               <span className={styles.statLabel}>Deal Score</span>
-              <strong className={styles.statValue} style={{ color: product.deal_score >= 70 ? "#ffa657" : product.deal_score >= 40 ? "#3fb950" : "#8b949e" }}>
-                {product.deal_score}/100
-              </strong>
+              <DealScoreBreakdown product={product} score={product.deal_score} />
             </div>
             <div className={styles.stat}>
               <span className={styles.statLabel}>Stores Found</span>

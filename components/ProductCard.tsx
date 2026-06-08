@@ -2,6 +2,7 @@ import { useState } from "react";
 import Sparkline from "./Sparkline";
 import ProductDetailModal from "./ProductDetailModal";
 import styles from "../styles/Card.module.css";
+import DealScoreBreakdown from "./DealScoreBreakdown";
 import { SHIPPING_THRESHOLDS } from "../lib/shipping";
 
 type HistoryEntry = {
@@ -145,8 +146,8 @@ export default function ProductCard({
                 {`↑${Math.abs(weeklyChange!).toFixed(0)}%`}
               </span>
             )}
-            {product.deal_score >= 70 && !isAllTimeLow && (
-              <span className={`${styles.badge} ${styles.badgeHotDeal}`}>🔥 HOT DEAL</span>
+            {product.deal_score >= 40 && (
+              <DealScoreBreakdown product={product} score={product.deal_score} compact />
             )}
           </div>
           {onToggleWishlist && (
