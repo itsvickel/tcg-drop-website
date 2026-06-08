@@ -1,0 +1,97 @@
+.wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  border: 1px solid transparent;
+  user-select: none;
+  transition: opacity 0.1s;
+}
+
+.badge:hover {
+  opacity: 0.85;
+}
+
+.hot {
+  background: rgba(255, 166, 87, 0.15);
+  color: #ffa657;
+  border-color: rgba(255, 166, 87, 0.3);
+}
+
+.good {
+  background: rgba(63, 185, 80, 0.1);
+  color: #3fb950;
+  border-color: rgba(63, 185, 80, 0.25);
+}
+
+.neutral {
+  background: rgba(139, 148, 158, 0.1);
+  color: #8b949e;
+  border-color: rgba(139, 148, 158, 0.2);
+}
+
+.compact .badge {
+  font-size: 0.65rem;
+  padding: 1px 5px;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-width: 200px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.tooltipTitle {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 8px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.78rem;
+  margin-bottom: 5px;
+}
+
+.row:last-child {
+  margin-bottom: 0;
+}
+
+.rowLabel {
+  color: #8b949e;
+}
+
+.positive {
+  color: #3fb950;
+  font-weight: 600;
+}
+
+.negative {
+  color: #f85149;
+  font-weight: 600;
+}
