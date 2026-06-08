@@ -8,6 +8,7 @@ import Footer from "../components/Footer";
 import NewsletterSignup from "../components/NewsletterSignup";
 import { useWishlist } from "../hooks/useWishlist";
 import styles from "../styles/Home.module.css";
+import HotStrip from "../components/HotStrip";
 
 type ApiResponse = {
   products: Product[];
@@ -55,6 +56,7 @@ export default function HomePage() {
   const router   = useRouter();
   const wishlist = useWishlist();
   const [autoAlertProduct, setAutoAlertProduct] = useState<Product | null>(null);
+  const [hotProduct, setHotProduct] = useState<Product | null>(null);
   const pendingAlertKey = useRef<string | null>(null);
 
   const { data, error, isLoading } = useSWR<ApiResponse>("/api/products", fetcher, {
@@ -348,6 +350,11 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ── Hot strip ──────────────────────────────────────────────────── */}
+        {products.length > 0 && (
+          <HotStrip products={products} onSelect={setHotProduct} />
+        )}
+
         {/* ── Controls ────────────────────────────────────────────────────── */}
         <section className={styles.controls}>
 
@@ -597,6 +604,12 @@ export default function HomePage() {
             product={autoAlertProduct}
             autoOpenAlert={true}
             onClose={() => setAutoAlertProduct(null)}
+          />
+        )}
+        {hotProduct && (
+          <ProductDetailModal
+            product={hotProduct}
+            onClose={() => setHotProduct(null)}
           />
         )}
         <Footer
