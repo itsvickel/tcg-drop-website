@@ -20,4 +20,5 @@ export const SHIPPING_THRESHOLDS: Record<string, string> = {
   "The End Games":      "Check site",
   "Border City Games":  "Check site",
   "Ivory Tower Comics": "Check site",
+  "Between2Games":      "Check site",
 };

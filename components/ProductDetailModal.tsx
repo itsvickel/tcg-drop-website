@@ -9,6 +9,7 @@ import type { Product } from "./ProductCard";
 import styles from "../styles/ProductDetail.module.css";
 import DealScoreBreakdown from "./DealScoreBreakdown";
 import { SHIPPING_THRESHOLDS } from "../lib/shipping";
+import { computePackCount } from "../lib/packCount";
 
 
 function stripTracking(url: string): string {
@@ -103,6 +104,7 @@ export default function ProductDetailModal({ product, onClose, autoOpenAlert }: 
     { retailer: product.retailer, price: product.price, url: product.url, in_stock: true },
     ...product.other_retailers,
   ].sort((a, b) => a.price - b.price);
+  const packCount = computePackCount(product.name);
 
   return (
     <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-label={`Details for ${product.name}`}>
@@ -162,6 +164,12 @@ export default function ProductDetailModal({ product, onClose, autoOpenAlert }: 
               <span className={styles.statLabel}>Deal Score</span>
               <DealScoreBreakdown product={product} score={product.deal_score} />
             </div>
+            {packCount && (
+              <div className={styles.stat}>
+                <span className={styles.statLabel}>Price / Pack</span>
+                <strong className={styles.statValue}>${(product.price / packCount).toFixed(2)}</strong>
+              </div>
+            )}
             <div className={styles.stat}>
               <span className={styles.statLabel}>Stores Found</span>
               <strong className={styles.statValue}>{allRetailers.length}</strong>

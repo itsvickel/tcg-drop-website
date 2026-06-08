@@ -221,6 +221,14 @@
   font-family: "JetBrains Mono", monospace;
 }
 
+.perPack {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 4px;
+  font-family: "Syne", sans-serif;
+}
+
 .lowNote {
   margin: 0;
   font-size: 0.84rem;

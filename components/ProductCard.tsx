@@ -4,6 +4,7 @@ import ProductDetailModal from "./ProductDetailModal";
 import styles from "../styles/Card.module.css";
 import DealScoreBreakdown from "./DealScoreBreakdown";
 import { SHIPPING_THRESHOLDS } from "../lib/shipping";
+import { computePackCount } from "../lib/packCount";
 
 type HistoryEntry = {
   date: string;
@@ -101,6 +102,7 @@ export default function ProductCard({
 
   const isAllTimeLow   = product.price <= product.all_time_low + 0.0001;
   const cleanUrl       = stripTrackingParams(product.url);
+  const packCount      = computePackCount(product.name);
   const weeklyChange   = product.price_change_7d;
   const hasWeeklyChange = weeklyChange !== null;
   const isActiveFilter = activeRetailer === product.retailer;
@@ -197,7 +199,14 @@ export default function ProductCard({
           )}
         </div>
 
-        <p className={styles.price}>{`$${product.price.toFixed(2)} CAD`}</p>
+        <p className={styles.price}>
+          {`$${product.price.toFixed(2)} CAD`}
+          {packCount && (
+            <span className={styles.perPack}>
+              {` · $${(product.price / packCount).toFixed(2)}/pack`}
+            </span>
+          )}
+        </p>
 
         {!isAllTimeLow && (
           <p className={styles.lowNote}>

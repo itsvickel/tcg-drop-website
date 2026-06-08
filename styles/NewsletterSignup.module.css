@@ -1,25 +1,115 @@
-.wrap {
-  margin-top: 28px;
-}
+/* ── Compact trigger row ── */
 
-.label {
-  margin: 0 0 10px;
-  font-size: 0.88rem;
-  color: var(--muted);
+.trigger {
+  margin-top: 20px;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.bell {
-  font-size: 1rem;
-  flex-shrink: 0;
+.triggerText {
+  font-size: 0.85rem;
+  color: var(--muted);
 }
+
+.triggerBtn {
+  background: rgba(56, 139, 253, 0.15);
+  border: 1px solid rgba(88, 166, 255, 0.45);
+  color: var(--blue);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-family: "Syne", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.triggerBtn:hover {
+  background: rgba(56, 139, 253, 0.28);
+  border-color: var(--blue);
+}
+
+.triggerLink {
+  font-size: 0.82rem;
+  color: #58a6ff;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.triggerLink:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ── Modal overlay ── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 16px;
+  padding: 32px 28px 28px;
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.closeBtn:hover { color: var(--text); }
+
+.modalTitle {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: #f0f6fc;
+}
+
+.modalDesc {
+  margin: 0 0 18px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.digestLink {
+  color: #58a6ff;
+  text-decoration: none;
+}
+.digestLink:hover { text-decoration: underline; }
+
+/* ── Form ── */
 
 .form {
   display: flex;
   gap: 8px;
-  max-width: 420px;
 }
 
 .input {
@@ -40,9 +130,7 @@
   box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
 }
 
-.input::placeholder {
-  color: var(--muted);
-}
+.input::placeholder { color: var(--muted); }
 
 .btn {
   background: rgba(56, 139, 253, 0.15);
@@ -68,34 +156,12 @@
   cursor: not-allowed;
 }
 
-.successBox {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(63, 185, 80, 0.08);
-  border: 1px solid rgba(63, 185, 80, 0.3);
-  border-radius: 10px;
-  padding: 12px 16px;
-  max-width: 420px;
-}
-
-.successIcon {
-  color: var(--green);
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-
-.successText {
-  margin: 0;
-  font-size: 0.88rem;
-  color: #c3f0c8;
-  line-height: 1.5;
-}
+/* ── Preferences ── */
 
 .prefs {
   display: flex;
   gap: 16px;
-  margin-top: 8px;
+  margin-top: 12px;
   flex-wrap: wrap;
 }
 
@@ -110,7 +176,36 @@
 .prefCheck input { cursor: pointer; accent-color: var(--blue); }
 
 .errorText {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   font-size: 0.82rem;
   color: var(--red);
+}
+
+/* ── Success state ── */
+
+.successBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.successIcon {
+  color: var(--green);
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.successTitle {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: #f0f6fc;
+  font-weight: 600;
+}
+
+.successText {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #c3f0c8;
+  line-height: 1.5;
 }
