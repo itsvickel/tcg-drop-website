@@ -7,6 +7,7 @@ export type CalendarSet = {
   type: string;
   products: string[];
   notes?: string;
+  url?: string;
 };
 
 export type CalendarResponse = { sets: CalendarSet[] };
