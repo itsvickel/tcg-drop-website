@@ -61,6 +61,10 @@ export type Product = {
   image_url: string;
   other_retailers: RetailerPrice[];
   is_new: boolean;
+  in_stock: boolean;
+  language: string;
+  product_type: string;
+  set_name: string;
 };
 
 export type ApiResponse = {
@@ -140,6 +144,101 @@ async function fetchJson<T>(repo: string, token: string, fileName: string): Prom
   return response.json() as Promise<T>;
 }
 
+// ── Product attribute extraction ─────────────────────────────────────────────
+
+const KNOWN_LANGUAGES = [
+  "Korean", "Japanese", "Simplified Chinese", "Traditional Chinese",
+  "French", "German", "Spanish", "Italian", "Portuguese",
+];
+
+function extractLanguage(name: string): string {
+  const m = name.match(/^\(([^)]+)\)/);
+  if (m && KNOWN_LANGUAGES.includes(m[1])) return m[1];
+  return "English";
+}
+
+const PRODUCT_TYPE_PATTERNS: Array<[RegExp, string]> = [
+  [/ultra.{0,5}premium.{0,10}collection/i,                              "Ultra Premium Collection"],
+  [/elite.{0,5}trainer.{0,5}box/i,                                      "Elite Trainer Box"],
+  [/build.{0,5}&?.{0,5}battle.{0,5}(?:box|kit|stadium)/i,              "Build & Battle Box"],
+  [/premium.{0,10}collection/i,                                          "Premium Collection"],
+  [/special.{0,10}collection/i,                                          "Special Collection"],
+  [/collect(?:ion|or).{0,5}(?:box|chest|case)/i,                        "Collection Box"],
+  [/special.{0,5}set/i,                                                  "Special Collection"],
+  [/\bchest\b/i,                                                         "Collection Box"],
+  [/mini.{0,3}tin/i,                                                     "Mini Tin"],
+  [/championship.{0,10}deck|(?:league.{0,5})?battle.{0,5}deck|starter.{0,5}deck/i, "Deck"],
+  [/half.{0,5}(?:booster.{0,5})?box/i,                                  "Half Box"],
+  [/booster.{0,5}box|\bbbx\b/i,                                          "Booster Box"],
+  [/checklane|blister/i,                                                 "Blister Pack"],
+  [/\d+s?\s+booster.{0,5}pack|booster.{0,5}pack/i,                     "Booster Pack"],
+  [/\bpack\b/i,                                                          "Booster Pack"],
+  [/\bbundle\b/i,                                                        "Bundle"],
+  [/\btins?\b/i,                                                         "Tin"],
+  [/\bbox\b/i,                                                           "Collection Box"],
+  [/\bdisplay\b/i,                                                       "Display"],
+  [/\bcollection\b/i,                                                    "Collection"],
+];
+
+function extractProductType(name: string): string {
+  for (const [pattern, type] of PRODUCT_TYPE_PATTERNS) {
+    if (pattern.test(name)) return type;
+  }
+  return "Other";
+}
+
+// Sorted longest-first so more-specific names take precedence over shorter substrings.
+const KNOWN_SETS: string[] = ([
+  // English SV
+  "Black Bolt & White Flare", "Destined Rivals", "Journey Together",
+  "Prismatic Evolutions", "Surging Sparks", "Stellar Crown",
+  "Shrouded Fable", "Twilight Masquerade", "Temporal Forces",
+  "Paldean Fates", "Paradox Rift", "Obsidian Flames", "Paldea Evolved",
+  // English SWSH
+  "Crown Zenith", "Silver Tempest", "Lost Origin", "Astral Radiance",
+  "Brilliant Stars", "Fusion Strike", "Evolving Skies", "Chilling Reign",
+  "Battle Styles", "Shining Fates", "Vivid Voltage", "Champions Path",
+  "Darkness Ablaze", "Rebel Clash", "Pokemon GO", "Celebrations",
+  // Special
+  "30th Celebration",
+  // Japanese SV
+  "Super Electric Breaker", "Glory of Team Rocket", "Terastal Festival",
+  "Battle Partners", "Stellar Miracle", "Paradise Dragon", "Heat Wave Arena",
+  "Night Wanderer", "Mask of Change", "Ancient Roar", "Future Flash",
+  "Snow Hazard", "Clay Burst", "Raging Surf", "Wild Force", "Cyber Judge",
+  "White Flare", "Black Bolt",
+  // Japanese SWSH
+  "Explosive Flame Walker", "Single Strike Master", "Rapid Strike Master",
+  "Astonishing Volt Tackle", "Incandescent Arcana", "Legendary Heartbeat",
+  "Paradigm Trigger", "Jet Black Spirit", "Vstar Universe",
+  "Space Juggler", "Time Gazer", "Silver Lance", "Star Birth", "Lost Abyss",
+  "Eevee Heroes", "Dark Phantasma", "Matchless Fighters", "Match Fighters",
+  "Battle Region", "Vmax Rising", "Fusion Arts", "Shiny Star V",
+  "Infinity Zone", "Blue Sky Stream", "Towering Perfection",
+  // Japanese SV base
+  "Shiny Treasure ex", "Scarlet ex", "Violet ex",
+  // Mega Evolution sub-sets (checked before "Mega Evolution" fallback)
+  "Phantasmal Flames", "Ascended Heroes", "Perfect Order", "Chaos Rising",
+  "Mega Inferno X", "Mega Symphonia", "Mega Brave", "Nihil Zero", "Abyss Eye",
+  // Chinese
+  "Savage Blade Awakening", "Dark Crystal Blaze", "Eternity Island",
+  "Blade Awakening", "Collect 151", "True Mystery",
+  // Numeric set name — added last so it only matches after all longer names fail
+  "151",
+] as string[]).sort((a, b) => b.length - a.length);
+
+function extractSetName(name: string): string {
+  const lower = name.toLowerCase();
+  for (const set of KNOWN_SETS) {
+    if (lower.includes(set.toLowerCase())) return set;
+  }
+  // Mega Evolution product line (checked after all sub-sets so sub-sets win)
+  if (/mega.{0,5}evolution|ME0[1-9]/i.test(name)) return "Mega Evolution";
+  return "";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
   const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -179,6 +278,9 @@ function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
         return a.price - b.price;
       });
 
+      const bestRetailerEntry = allRetailers.find(r => r.retailer === bestPrice.retailer);
+      const inStock = bestRetailerEntry ? bestRetailerEntry.in_stock : true;
+
       const product: Product = {
         group_key,
         name: bestPrice.name,
@@ -192,7 +294,11 @@ function toApiResponse(state: StateJson, history: HistoryJson): ApiResponse {
         history: entries,
         image_url: bestPrice.image_url ?? "",
         other_retailers: otherRetailers,
-        is_new: isNew
+        is_new: isNew,
+        in_stock: inStock,
+        language: extractLanguage(bestPrice.name),
+        product_type: extractProductType(bestPrice.name),
+        set_name: extractSetName(bestPrice.name),
       };
 
       return product;

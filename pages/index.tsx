@@ -47,9 +47,16 @@ export default function HomePage() {
     revalidateOnFocus: false,
   });
 
+  // ── Filter state ─────────────────────────────────────────────────────────
   const [query,         setQuery]         = useState("");
   const [sort,          setSort]          = useState<SortOption>("price_asc");
   const [retailer,      setRetailer]      = useState<string>("all");
+  const [language,      setLanguage]      = useState<string>("all");
+  const [productType,   setProductType]   = useState<string>("all");
+  const [setName,       setSetName]       = useState<string>("all");
+  const [priceMin,      setPriceMin]      = useState<string>("");
+  const [priceMax,      setPriceMax]      = useState<string>("");
+  const [inStockOnly,   setInStockOnly]   = useState(false);
   const [hidePreorders, setHidePreorders] = useState(false);
   const [dealsOnly,     setDealsOnly]     = useState(false);
   const [lowOnly,       setLowOnly]       = useState(false);
@@ -60,14 +67,20 @@ export default function HomePage() {
   // ── Sync from URL on first load ──────────────────────────────────────────
   useEffect(() => {
     if (!router.isReady) return;
-    const { q, s, r, p, d, l, w } = router.query;
-    if (typeof q === "string") setQuery(q);
-    if (typeof s === "string" && VALID_SORTS.includes(s as SortOption)) setSort(s as SortOption);
-    if (typeof r === "string") setRetailer(r);
-    if (p === "1") setHidePreorders(true);
-    if (d === "1") setDealsOnly(true);
-    if (l === "1") setLowOnly(true);
-    if (w === "1") setWishlistOnly(true);
+    const { q, s, r, lang, type, set, pmin, pmax, stock, p, d, l, w } = router.query;
+    if (typeof q    === "string") setQuery(q);
+    if (typeof s    === "string" && VALID_SORTS.includes(s as SortOption)) setSort(s as SortOption);
+    if (typeof r    === "string") setRetailer(r);
+    if (typeof lang === "string") setLanguage(lang);
+    if (typeof type === "string") setProductType(type);
+    if (typeof set  === "string") setSetName(set);
+    if (typeof pmin === "string") setPriceMin(pmin);
+    if (typeof pmax === "string") setPriceMax(pmax);
+    if (stock === "1") setInStockOnly(true);
+    if (p     === "1") setHidePreorders(true);
+    if (d     === "1") setDealsOnly(true);
+    if (l     === "1") setLowOnly(true);
+    if (w     === "1") setWishlistOnly(true);
     setUrlReady(true);
   }, [router.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -75,23 +88,32 @@ export default function HomePage() {
   useEffect(() => {
     if (!urlReady) return;
     const params: Record<string, string> = {};
-    if (query)        params.q = query;
-    if (sort !== "price_asc") params.s = sort;
-    if (retailer !== "all")   params.r = retailer;
-    if (hidePreorders)  params.p = "1";
-    if (dealsOnly)      params.d = "1";
-    if (lowOnly)        params.l = "1";
-    if (wishlistOnly)   params.w = "1";
+    if (query)              params.q     = query;
+    if (sort !== "price_asc")   params.s = sort;
+    if (retailer !== "all")     params.r = retailer;
+    if (language !== "all")     params.lang  = language;
+    if (productType !== "all")  params.type  = productType;
+    if (setName !== "all")      params.set   = setName;
+    if (priceMin)           params.pmin  = priceMin;
+    if (priceMax)           params.pmax  = priceMax;
+    if (inStockOnly)        params.stock = "1";
+    if (hidePreorders)      params.p     = "1";
+    if (dealsOnly)          params.d     = "1";
+    if (lowOnly)            params.l     = "1";
+    if (wishlistOnly)       params.w     = "1";
     void router.replace({ query: params }, undefined, { shallow: true });
-  }, [query, sort, retailer, hidePreorders, dealsOnly, lowOnly, wishlistOnly, urlReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query, sort, retailer, language, productType, setName, priceMin, priceMax, // eslint-disable-line react-hooks/exhaustive-deps
+      inStockOnly, hidePreorders, dealsOnly, lowOnly, wishlistOnly, urlReady]);
 
   const products = data?.products ?? [];
 
-  // Reset pagination when filters change
+  // Reset pagination whenever any filter changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [query, sort, retailer, hidePreorders, dealsOnly, lowOnly, wishlistOnly]);
+  }, [query, sort, retailer, language, productType, setName, priceMin, priceMax,
+      inStockOnly, hidePreorders, dealsOnly, lowOnly, wishlistOnly]);
 
+  // ── Dropdown option lists (derived from loaded products) ─────────────────
   const retailers = useMemo(
     () => Array.from(new Set(products.map((p) => p.retailer))).sort((a, b) => a.localeCompare(b)),
     [products]
@@ -103,6 +125,23 @@ export default function HomePage() {
     return counts;
   }, [products]);
 
+  const languages = useMemo(
+    () => Array.from(new Set(products.map((p) => p.language).filter(Boolean))).sort(),
+    [products]
+  );
+
+  const productTypes = useMemo(
+    () =>
+      Array.from(new Set(products.map((p) => p.product_type).filter((t) => Boolean(t) && t !== "Other"))).sort(),
+    [products]
+  );
+
+  const setNames = useMemo(
+    () => Array.from(new Set(products.map((p) => p.set_name).filter(Boolean))).sort(),
+    [products]
+  );
+
+  // ── Stats ────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const deals      = products.filter((p) => p.price_change_7d !== null && p.price_change_7d <= -5).length;
     const allTimeLow = products.filter((p) => isAtAllTimeLow(p)).length;
@@ -116,6 +155,7 @@ export default function HomePage() {
     };
   }, [products]);
 
+  // ── Filtered + sorted products ───────────────────────────────────────────
   const filteredProducts = useMemo(() => {
     let next = [...products];
 
@@ -123,11 +163,20 @@ export default function HomePage() {
       const q = query.trim().toLowerCase();
       next = next.filter((p) => p.name.toLowerCase().includes(q));
     }
-    if (retailer !== "all")  next = next.filter((p) => p.retailer === retailer);
-    if (hidePreorders)       next = next.filter((p) => !p.is_preorder);
-    if (dealsOnly)           next = next.filter((p) => p.price_change_7d !== null && p.price_change_7d <= -5);
-    if (lowOnly)             next = next.filter((p) => isAtAllTimeLow(p));
-    if (wishlistOnly)        next = next.filter((p) => wishlist.has(p.group_key));
+    if (retailer    !== "all") next = next.filter((p) => p.retailer    === retailer);
+    if (language    !== "all") next = next.filter((p) => p.language    === language);
+    if (productType !== "all") next = next.filter((p) => p.product_type === productType);
+    if (setName     !== "all") next = next.filter((p) => p.set_name    === setName);
+    if (inStockOnly)           next = next.filter((p) => p.in_stock);
+    if (hidePreorders)         next = next.filter((p) => !p.is_preorder);
+    if (dealsOnly)             next = next.filter((p) => p.price_change_7d !== null && p.price_change_7d <= -5);
+    if (lowOnly)               next = next.filter((p) => isAtAllTimeLow(p));
+    if (wishlistOnly)          next = next.filter((p) => wishlist.has(p.group_key));
+
+    const minP = priceMin ? parseFloat(priceMin) : null;
+    const maxP = priceMax ? parseFloat(priceMax) : null;
+    if (minP !== null && !isNaN(minP)) next = next.filter((p) => p.price >= minP);
+    if (maxP !== null && !isNaN(maxP)) next = next.filter((p) => p.price <= maxP);
 
     switch (sort) {
       case "price_desc": next.sort((a, b) => b.price - a.price); break;
@@ -138,11 +187,18 @@ export default function HomePage() {
     }
 
     return next;
-  }, [products, query, retailer, hidePreorders, dealsOnly, lowOnly, wishlistOnly, wishlist, sort]);
+  }, [products, query, retailer, language, productType, setName, priceMin, priceMax,
+      inStockOnly, hidePreorders, dealsOnly, lowOnly, wishlistOnly, wishlist, sort]);
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
   const hasMore         = visibleCount < filteredProducts.length;
   const remaining       = filteredProducts.length - visibleCount;
+
+  const activeFilterCount = [
+    query, retailer !== "all", language !== "all", productType !== "all",
+    setName !== "all", priceMin, priceMax, inStockOnly, hidePreorders,
+    dealsOnly, lowOnly, wishlistOnly,
+  ].filter(Boolean).length;
 
   function handleRetailerClick(name: string) {
     setRetailer((prev) => (prev === name ? "all" : name));
@@ -151,6 +207,12 @@ export default function HomePage() {
   function clearFilters() {
     setQuery("");
     setRetailer("all");
+    setLanguage("all");
+    setProductType("all");
+    setSetName("all");
+    setPriceMin("");
+    setPriceMax("");
+    setInStockOnly(false);
     setHidePreorders(false);
     setDealsOnly(false);
     setLowOnly(false);
@@ -227,58 +289,155 @@ export default function HomePage() {
 
         {/* ── Controls ────────────────────────────────────────────────────── */}
         <section className={styles.controls}>
-          <input
-            className={`${styles.controlInput} ${styles.controlSearch}`}
-            type="text"
-            placeholder="Search products…"
-            aria-label="Search products"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
 
-          <select
-            className={styles.controlInput}
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            aria-label="Sort order"
-          >
-            <option value="price_asc">Price ↑ Low to High</option>
-            <option value="price_desc">Price ↓ High to Low</option>
-            <option value="drop">Biggest Drop</option>
-            <option value="updated">Recently Updated</option>
-            <option value="name">Name A–Z</option>
-          </select>
+          {/* Row 1: search · sort · retailer */}
+          <div className={styles.controlsRow1}>
+            <input
+              className={`${styles.controlInput} ${styles.controlSearch}`}
+              type="text"
+              placeholder="Search products…"
+              aria-label="Search products"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <select
+              className={styles.controlInput}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              aria-label="Sort order"
+            >
+              <option value="price_asc">Price ↑ Low to High</option>
+              <option value="price_desc">Price ↓ High to Low</option>
+              <option value="drop">Biggest Drop</option>
+              <option value="updated">Recently Updated</option>
+              <option value="name">Name A–Z</option>
+            </select>
+            <select
+              className={`${styles.controlInput} ${styles.controlRetailer}`}
+              value={retailer}
+              onChange={(e) => setRetailer(e.target.value)}
+              aria-label="Filter by retailer"
+            >
+              <option value="all">All retailers</option>
+              {retailers.map((r) => (
+                <option key={r} value={r}>
+                  {r}{retailerCounts[r] ? ` (${retailerCounts[r]})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            className={`${styles.controlInput} ${styles.controlRetailer}`}
-            value={retailer}
-            onChange={(e) => setRetailer(e.target.value)}
-            aria-label="Filter by retailer"
-          >
-            <option value="all">All retailers</option>
-            {retailers.map((r) => (
-              <option key={r} value={r}>
-                {r}{retailerCounts[r] ? ` (${retailerCounts[r]})` : ""}
-              </option>
-            ))}
-          </select>
+          {/* Row 2: language · product type · set · price range */}
+          <div className={styles.controlsRow2}>
+            <select
+              className={styles.controlInput}
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              aria-label="Filter by language"
+            >
+              <option value="all">All languages</option>
+              {languages.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+            <select
+              className={styles.controlInput}
+              value={productType}
+              onChange={(e) => setProductType(e.target.value)}
+              aria-label="Filter by product type"
+            >
+              <option value="all">All product types</option>
+              {productTypes.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <select
+              className={`${styles.controlInput} ${styles.controlSet}`}
+              value={setName}
+              onChange={(e) => setSetName(e.target.value)}
+              aria-label="Filter by set"
+            >
+              <option value="all">All sets / expansions</option>
+              {setNames.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <div className={styles.priceRange}>
+              <span className={styles.priceRangeLabel}>$</span>
+              <input
+                className={styles.priceInput}
+                type="number"
+                min="0"
+                placeholder="Min"
+                value={priceMin}
+                onChange={(e) => setPriceMin(e.target.value)}
+                aria-label="Minimum price"
+              />
+              <span className={styles.priceRangeSep}>–</span>
+              <input
+                className={styles.priceInput}
+                type="number"
+                min="0"
+                placeholder="Max"
+                value={priceMax}
+                onChange={(e) => setPriceMax(e.target.value)}
+                aria-label="Maximum price"
+              />
+            </div>
+          </div>
 
-          <label className={styles.toggle}>
-            <input type="checkbox" checked={hidePreorders} onChange={(e) => setHidePreorders(e.target.checked)} />
-            Hide pre-orders
-          </label>
-          <label className={styles.toggle}>
-            <input type="checkbox" checked={dealsOnly} onChange={(e) => setDealsOnly(e.target.checked)} />
-            Deals only
-          </label>
-          <label className={styles.toggle}>
-            <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} />
-            All-time low only
-          </label>
-          <label className={`${styles.toggle} ${styles.toggleWishlist}`}>
-            <input type="checkbox" checked={wishlistOnly} onChange={(e) => setWishlistOnly(e.target.checked)} />
-            ♥ My List{wishlist.count > 0 ? ` (${wishlist.count})` : ""}
-          </label>
+          {/* Row 3: toggles + clear */}
+          <div className={styles.controlsRow3}>
+            <label className={styles.toggle}>
+              <input
+                type="checkbox"
+                checked={inStockOnly}
+                onChange={(e) => setInStockOnly(e.target.checked)}
+              />
+              In stock
+            </label>
+            <label className={styles.toggle}>
+              <input
+                type="checkbox"
+                checked={hidePreorders}
+                onChange={(e) => setHidePreorders(e.target.checked)}
+              />
+              Hide pre-orders
+            </label>
+            <label className={styles.toggle}>
+              <input
+                type="checkbox"
+                checked={dealsOnly}
+                onChange={(e) => setDealsOnly(e.target.checked)}
+              />
+              Deals only
+            </label>
+            <label className={styles.toggle}>
+              <input
+                type="checkbox"
+                checked={lowOnly}
+                onChange={(e) => setLowOnly(e.target.checked)}
+              />
+              All-time low only
+            </label>
+            <label className={`${styles.toggle} ${styles.toggleWishlist}`}>
+              <input
+                type="checkbox"
+                checked={wishlistOnly}
+                onChange={(e) => setWishlistOnly(e.target.checked)}
+              />
+              ♥ My List{wishlist.count > 0 ? ` (${wishlist.count})` : ""}
+            </label>
+            {activeFilterCount > 0 && (
+              <button
+                className={styles.clearFiltersBtn}
+                onClick={clearFilters}
+                type="button"
+              >
+                ✕ Clear {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
+              </button>
+            )}
+          </div>
         </section>
 
         {/* ── Results header ───────────────────────────────────────────────── */}

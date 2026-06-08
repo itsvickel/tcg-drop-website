@@ -30,6 +30,10 @@ export type Product = {
   image_url: string;
   other_retailers: RetailerPrice[];
   is_new: boolean;
+  in_stock: boolean;
+  language: string;
+  product_type: string;
+  set_name: string;
 };
 
 type ProductCardProps = {
