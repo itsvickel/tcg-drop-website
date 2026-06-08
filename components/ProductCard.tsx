@@ -47,6 +47,9 @@ type ProductCardProps = {
   activeRetailer?: string;
   isWishlisted?: boolean;
   onToggleWishlist?: (key: string) => void;
+  isInComparison?: boolean;
+  onToggleComparison?: (product: Product) => void;
+  compareDisabled?: boolean;
 };
 
 
@@ -90,6 +93,9 @@ export default function ProductCard({
   activeRetailer,
   isWishlisted = false,
   onToggleWishlist,
+  isInComparison = false,
+  onToggleComparison,
+  compareDisabled = false,
 }: ProductCardProps) {
   const [showDetail, setShowDetail] = useState(false);
 
@@ -150,6 +156,18 @@ export default function ProductCard({
               <DealScoreBreakdown product={product} score={product.deal_score} compact />
             )}
           </div>
+          {onToggleComparison && (
+            <button
+              className={`${styles.compareBtn} ${isInComparison ? styles.compareBtnActive : ""} ${compareDisabled && !isInComparison ? styles.compareBtnDisabled : ""}`}
+              onClick={(e) => { e.stopPropagation(); onToggleComparison(product); }}
+              type="button"
+              disabled={compareDisabled && !isInComparison}
+              aria-label={isInComparison ? "Remove from comparison" : "Add to comparison"}
+              title={isInComparison ? "Remove from comparison" : compareDisabled ? "Max 3 products" : "Compare this product"}
+            >
+              {isInComparison ? "⊠" : "⊞"}
+            </button>
+          )}
           {onToggleWishlist && (
             <button
               className={`${styles.wishlistBtn} ${isWishlisted ? styles.wishlistBtnActive : ""}`}

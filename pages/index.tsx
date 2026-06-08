@@ -9,6 +9,7 @@ import NewsletterSignup from "../components/NewsletterSignup";
 import { useWishlist } from "../hooks/useWishlist";
 import styles from "../styles/Home.module.css";
 import HotStrip from "../components/HotStrip";
+import CompareModal, { CompareBar } from "../components/CompareModal";
 
 type ApiResponse = {
   products: Product[];
@@ -81,6 +82,8 @@ export default function HomePage() {
   const [wishlistOnly,  setWishlistOnly]  = useState(false);
   const [visibleCount,  setVisibleCount]  = useState(PAGE_SIZE);
   const [urlReady,      setUrlReady]      = useState(false);
+  const [compareList,  setCompareList]  = useState<Product[]>([]);
+  const [showCompare,  setShowCompare]  = useState(false);
 
   // ── Sync from URL on first load ──────────────────────────────────────────
   useEffect(() => {
@@ -122,9 +125,10 @@ export default function HomePage() {
     if (lowOnly)            params.l     = "1";
     if (newOnly)            params.n     = "1";
     if (wishlistOnly)       params.w     = "1";
+    if (compareList.length > 0) params.compare = compareList.map((p) => p.group_key).join(",");
     void router.replace({ query: params }, undefined, { shallow: true });
   }, [query, sort, retailer, language, productType, setName, priceMin, priceMax, // eslint-disable-line react-hooks/exhaustive-deps
-      inStockOnly, hidePreorders, dealsOnly, lowOnly, newOnly, wishlistOnly, urlReady]);
+      inStockOnly, hidePreorders, dealsOnly, lowOnly, newOnly, wishlistOnly, urlReady, compareList]);
 
   const products = data?.products ?? [];
 
@@ -137,6 +141,19 @@ export default function HomePage() {
       pendingAlertKey.current = null;
     }
   }, [products]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restore compare list from URL once products are loaded
+  useEffect(() => {
+    if (!router.isReady || products.length === 0) return;
+    const raw = router.query.compare;
+    if (typeof raw !== "string" || !raw) return;
+    const keys = raw.split(",").filter(Boolean);
+    const matched = keys
+      .map((k) => products.find((p) => p.group_key === k))
+      .filter((p): p is Product => p !== undefined)
+      .slice(0, 3);
+    if (matched.length > 0) setCompareList(matched);
+  }, [router.isReady, products]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset pagination whenever any filter changes
   useEffect(() => {
@@ -270,6 +287,15 @@ export default function HomePage() {
     setLowOnly(false);
     setNewOnly(false);
     setWishlistOnly(false);
+  }
+
+  function toggleCompare(product: Product) {
+    setCompareList((prev) => {
+      const exists = prev.some((p) => p.group_key === product.group_key);
+      if (exists) return prev.filter((p) => p.group_key !== product.group_key);
+      if (prev.length >= 3) return prev;
+      return [...prev, product];
+    });
   }
 
   return (
@@ -581,6 +607,9 @@ export default function HomePage() {
                   activeRetailer={retailer}
                   isWishlisted={wishlist.hydrated ? wishlist.has(product.group_key) : false}
                   onToggleWishlist={wishlist.toggle}
+                  isInComparison={compareList.some((p) => p.group_key === product.group_key)}
+                  onToggleComparison={toggleCompare}
+                  compareDisabled={compareList.length >= 3}
                 />
               ))}
             </section>
@@ -612,6 +641,25 @@ export default function HomePage() {
             onClose={() => setHotProduct(null)}
           />
         )}
+        <CompareBar
+          products={compareList}
+          onRemove={(key) => setCompareList((prev) => prev.filter((p) => p.group_key !== key))}
+          onCompare={() => setShowCompare(true)}
+          onClear={() => { setCompareList([]); setShowCompare(false); }}
+        />
+
+        {showCompare && compareList.length > 0 && (
+          <CompareModal
+            products={compareList}
+            onClose={() => setShowCompare(false)}
+            onRemove={(key) => {
+              const next = compareList.filter((p) => p.group_key !== key);
+              setCompareList(next);
+              if (next.length === 0) setShowCompare(false);
+            }}
+          />
+        )}
+
         <Footer
           syncedAt={data?.generated_at ?? null}
           retailersCount={data?.retailers_count ?? stats.retailers}

@@ -430,3 +430,36 @@
 .compareLink:hover {
   text-decoration: underline;
 }
+
+.compareBtn {
+  background: none;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  font-size: 1rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.compareBtn:hover:not(:disabled) {
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+.compareBtnActive {
+  border-color: #58a6ff;
+  color: #58a6ff;
+  background: rgba(88, 166, 255, 0.1);
+}
+
+.compareBtnDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
