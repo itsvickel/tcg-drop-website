@@ -216,6 +216,8 @@ function extractProductType(name: string): string {
 
 // Sorted longest-first so more-specific names take precedence over shorter substrings.
 const KNOWN_SETS: string[] = ([
+  // English Mega Evolution era
+  "Pitch Black", "Mega Evolution",
   // English SV
   "Black Bolt & White Flare", "Destined Rivals", "Journey Together",
   "Prismatic Evolutions", "Surging Sparks", "Stellar Crown",
