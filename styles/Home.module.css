@@ -1,7 +1,67 @@
+/* ── Hero ────────────────────────────────────────────────── */
+
+.hero {
+  padding: 56px 20px 48px;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.heroContent {
+  max-width: 680px;
+}
+
+.heroTitle {
+  margin: 0 0 12px;
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.15;
+  background: linear-gradient(110deg, #f0f6fc 0%, #58a6ff 50%, #3fb950 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.heroTagline {
+  margin: 0 0 32px;
+  font-size: clamp(1rem, 1.8vw, 1.15rem);
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.heroStats {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.heroStat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.heroStat strong {
+  font-size: 1.8rem;
+  color: #f0f6fc;
+  font-family: "JetBrains Mono", monospace;
+  line-height: 1;
+}
+
+.heroStat span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.heroStatGreen strong {
+  color: var(--green);
+}
+
+/* ── Page ─────────────────────────────────────────────────── */
+
 .page {
   max-width: 1320px;
   margin: 0 auto;
-  padding: 24px 20px 40px;
+  padding: 0 20px 40px;
 }
 
 .header {
@@ -12,10 +72,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 0;
-  backdrop-filter: blur(8px);
-  background: linear-gradient(180deg, rgba(13, 17, 23, 0.95), rgba(13, 17, 23, 0.75));
-  border-bottom: 1px solid rgba(48, 54, 61, 0.8);
+  padding: 12px 0;
+  backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(13, 17, 23, 0.97), rgba(13, 17, 23, 0.88));
+  border-bottom: 1px solid rgba(48, 54, 61, 0.7);
 }
 
 .title {
@@ -60,30 +120,44 @@
 }
 
 .statsBar {
-  margin-top: 18px;
+  margin-top: 16px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .statCard {
   border: 1px solid var(--border);
   background: linear-gradient(160deg, rgba(22, 27, 34, 0.92), rgba(13, 17, 23, 0.95));
   border-radius: 12px;
-  padding: 12px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  transition: border-color 0.15s;
+}
+
+.statCard:hover {
+  border-color: rgba(88, 166, 255, 0.3);
 }
 
 .statCard strong {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   color: #f0f6fc;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.statCardGreen strong {
+  color: var(--green);
+}
+
+.statCardBlue strong {
+  color: var(--blue);
 }
 
 .statLabel {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .controls {
@@ -117,12 +191,29 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.toggle:hover {
+  border-color: rgba(88, 166, 255, 0.4);
 }
 
 .toggle input {
   accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.toggleWishlist {
+  border-color: rgba(163, 113, 247, 0.35);
+}
+
+.toggleWishlist:has(input:checked) {
+  border-color: var(--purple);
+  background: rgba(163, 113, 247, 0.08);
+  color: #d2baff;
 }
 
 .resultsHeader {
@@ -258,8 +349,12 @@
 }
 
 @media (max-width: 700px) {
+  .hero {
+    padding: 32px 16px 28px;
+  }
+
   .page {
-    padding: 16px 12px 28px;
+    padding: 0 12px 28px;
   }
 
   .statsBar {
@@ -285,6 +380,14 @@
 }
 
 @media (max-width: 480px) {
+  .heroStats {
+    gap: 18px;
+  }
+
+  .heroStat strong {
+    font-size: 1.4rem;
+  }
+
   .statsBar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

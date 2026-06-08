@@ -1,18 +1,19 @@
 .card {
   border: 1px solid var(--border);
   background: var(--card);
-  border-radius: 14px;
-  padding: 14px;
+  border-radius: 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  position: relative;
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  border-color: #4d7fb5;
-  box-shadow: 0 12px 24px rgba(56, 139, 253, 0.18);
+  transform: translateY(-3px);
+  border-color: rgba(88, 166, 255, 0.45);
+  box-shadow: 0 16px 32px rgba(56, 139, 253, 0.15), 0 4px 8px rgba(0,0,0,0.3);
 }
 
 .preorderTopBorder {
@@ -41,11 +42,44 @@
   object-fit: contain;
 }
 
+/* ── Top row: badges + wishlist ── */
+
+.cardTopRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  min-height: 24px;
+  gap: 5px;
+  flex: 1;
+}
+
+/* ── Wishlist heart ── */
+
+.wishlistBtn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 1px 3px;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.15s;
+  margin-top: -2px;
+}
+
+.wishlistBtn:hover {
+  color: #f85149;
+  transform: scale(1.2);
+}
+
+.wishlistBtnActive {
+  color: #f85149;
 }
 
 .badge {
@@ -79,11 +113,13 @@
 .badgeDrop {
   color: #d2f9d7;
   background: rgba(63, 185, 80, 0.16);
+  border: 1px solid rgba(63, 185, 80, 0.3);
 }
 
 .badgeRise {
   color: #ffd6d3;
   background: rgba(248, 81, 73, 0.16);
+  border: 1px solid rgba(248, 81, 73, 0.3);
 }
 
 .productName {
@@ -185,21 +221,48 @@
   font-size: 0.8rem;
 }
 
+.updatedStale {
+  color: var(--amber) !important;
+}
+
+/* ── Details / more stores button ── */
+
+.detailsBtn {
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-family: "Syne", sans-serif;
+  cursor: pointer;
+  padding: 8px 0 0;
+  text-align: left;
+  width: 100%;
+  transition: color 0.15s;
+}
+
+.detailsBtn:hover {
+  color: var(--blue);
+}
+
 .buyButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  border: 1px solid rgba(63, 185, 80, 0.45);
-  background: linear-gradient(180deg, rgba(63, 185, 80, 0.28), rgba(46, 160, 67, 0.3));
-  color: #d2f9d7;
-  padding: 8px 12px;
-  font-size: 0.84rem;
+  border: 1px solid rgba(63, 185, 80, 0.5);
+  background: linear-gradient(160deg, rgba(63, 185, 80, 0.22), rgba(46, 160, 67, 0.28));
+  color: #c3f0c8;
+  padding: 8px 14px;
+  font-size: 0.85rem;
   font-weight: 700;
+  white-space: nowrap;
+  transition: filter 0.15s, border-color 0.15s;
 }
 
 .buyButton:hover {
-  filter: brightness(1.12);
+  filter: brightness(1.15);
+  border-color: rgba(63, 185, 80, 0.75);
 }
 
 /* ── Multi-retailer comparison panel ── */
