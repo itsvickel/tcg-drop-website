@@ -64,7 +64,10 @@ export default function NewsletterSignup() {
     <div className={styles.wrap}>
       <p className={styles.label}>
         <span className={styles.bell}>🔔</span>
-        Get notified — new preorders &amp; best weekly drops, straight to your inbox
+        Get notified — new preorders &amp; best weekly drops, straight to your inbox.{" "}
+        <a href="/digest" style={{ color: "#58a6ff", fontSize: "0.85em" }}>
+          Preview this week&apos;s deals →
+        </a>
       </p>
       <form className={styles.form} onSubmit={(e) => { void handleSubmit(e); }}>
         <input

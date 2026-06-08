@@ -1,0 +1,146 @@
+.page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+}
+
+.heading {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #c9d1d9;
+  margin: 0 0 6px;
+}
+
+.sub {
+  font-size: 0.85rem;
+  color: #8b949e;
+  margin: 0 0 28px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dealRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: border-color 0.15s;
+}
+
+.dealRow:hover {
+  border-color: #30363d;
+}
+
+.rank {
+  font-size: 0.78rem;
+  color: #8b949e;
+  font-weight: 700;
+  width: 20px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.thumb {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #c9d1d9;
+  margin: 0 0 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.retailer {
+  font-size: 0.75rem;
+  color: #8b949e;
+  margin: 0;
+}
+
+.msrp {
+  font-size: 0.72rem;
+  color: #3fb950;
+  margin: 2px 0 0;
+}
+
+.right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.price {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #58a6ff;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.drop {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #3fb950;
+  background: rgba(63, 185, 80, 0.12);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.atl {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #ffa657;
+  background: rgba(255, 166, 87, 0.12);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+.buyBtn {
+  background: #238636;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 7px;
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.buyBtn:hover {
+  background: #2ea043;
+}
+
+.footer {
+  margin-top: 28px;
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-align: center;
+}
+
+.error {
+  color: #f85149;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 40px;
+}
