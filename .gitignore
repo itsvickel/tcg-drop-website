@@ -16,3 +16,6 @@ out/
 # misc
 .DS_Store
 *.pem
+
+# git worktrees
+.worktrees/
