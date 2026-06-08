@@ -187,7 +187,7 @@ export default function ProductDetailModal({ product, onClose, autoOpenAlert }: 
                     <div className={styles.retailerInfo}>
                       <span className={styles.retailerName}>{r.retailer}</span>
                       <span className={styles.shippingHint}>
-                        {SHIPPING_THRESHOLDS[r.retailer] ?? "Check site for shipping"}
+                        {SHIPPING_THRESHOLDS[r.retailer] ?? "Check site"}
                       </span>
                     </div>
                   </div>
