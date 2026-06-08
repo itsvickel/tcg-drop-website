@@ -2,6 +2,7 @@ import { useState } from "react";
 import Sparkline from "./Sparkline";
 import ProductDetailModal from "./ProductDetailModal";
 import styles from "../styles/Card.module.css";
+import { SHIPPING_THRESHOLDS } from "../lib/shipping";
 
 type HistoryEntry = {
   date: string;
@@ -47,29 +48,6 @@ type ProductCardProps = {
   onToggleWishlist?: (key: string) => void;
 };
 
-const SHIPPING_THRESHOLDS: Record<string, string> = {
-  "Best Buy CA":        "Free $35+",
-  "Walmart CA":         "Free $35+",
-  "Amazon.ca":          "Free $35+/Prime",
-  "Pokemon Center CA":  "Free $50+",
-  "EB Games":           "Free $49+",
-  "401 Games":          "Free $149+",
-  "Deck Out Gaming":    "Free $100+",
-  Hobbiesville:         "Free $150+",
-  Danireon:             "Free $200+",
-  "A&C Games":          "Free $100+",
-  "Face to Face":       "Free $100+",
-  "Game Keeper":        "Free $75+",
-  "Remi Card Trader":   "Free $75+",
-  Meeplemart:           "Free $75+",
-  "Carta Magica":       "Free $100+",
-  "Epic Loot":          "Free $75+",
-  "Dragon Card & Game": "Check site",
-  "Untapped Games":     "Check site",
-  "The End Games":      "Check site",
-  "Border City Games":  "Check site",
-  "Ivory Tower Comics": "Check site",
-};
 
 const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000;
 

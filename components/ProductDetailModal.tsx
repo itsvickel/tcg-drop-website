@@ -7,25 +7,8 @@ import {
 } from "recharts";
 import type { Product } from "./ProductCard";
 import styles from "../styles/ProductDetail.module.css";
+import { SHIPPING_THRESHOLDS } from "../lib/shipping";
 
-const SHIPPING_THRESHOLDS: Record<string, string> = {
-  "Best Buy CA":        "Free $35+",
-  "Walmart CA":         "Free $35+",
-  "Amazon.ca":          "Free $35+/Prime",
-  "Pokemon Center CA":  "Free $50+",
-  "EB Games":           "Free $49+",
-  "401 Games":          "Free $149+",
-  "Deck Out Gaming":    "Free $100+",
-  Hobbiesville:         "Free $150+",
-  Danireon:             "Free $200+",
-  "A&C Games":          "Free $100+",
-  "Face to Face":       "Free $100+",
-  "Game Keeper":        "Free $75+",
-  "Remi Card Trader":   "Free $75+",
-  Meeplemart:           "Free $75+",
-  "Carta Magica":       "Free $100+",
-  "Epic Loot":          "Free $75+",
-};
 
 function stripTracking(url: string): string {
   try {
