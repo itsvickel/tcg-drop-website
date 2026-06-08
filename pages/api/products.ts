@@ -75,6 +75,8 @@ export type Product = {
   language: string;
   product_type: string;
   set_name: string;
+  msrp: number | null;
+  deal_score: number;
 };
 
 export type ApiResponse = {
@@ -108,6 +110,21 @@ function computeAllTimeLow(entries: HistoryEntry[], currentPrice: number): numbe
     return currentPrice;
   }
   return Math.min(currentPrice, ...entries.map((entry) => entry.price));
+}
+
+function computeDealScore(
+  price: number,
+  atl: number,
+  change7d: number | null,
+  msrp: number | null
+): number {
+  const atlSpread = Math.max(atl * 0.5, 0.01);
+  const atlScore = atl > 0 ? Math.max(0, 1 - (price - atl) / atlSpread) * 40 : 0;
+  const dropScore = change7d !== null && change7d < 0
+    ? Math.min(30, (Math.abs(change7d) / 15) * 30) : 0;
+  const msrpScore = msrp !== null && msrp > price
+    ? Math.min(30, ((msrp - price) / msrp) * 2 * 30) : 0;
+  return Math.round(Math.min(100, atlScore + dropScore + msrpScore));
 }
 
 function computeSevenDayChange(entries: HistoryEntry[], currentPrice: number, now = new Date()): number | null {
@@ -259,12 +276,16 @@ function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: Sto
   );
 
   // Build group_key → all retailer entries map from raw products
-  const byGroup = new Map<string, RetailerPrice[]>();
+  const byGroup    = new Map<string, RetailerPrice[]>();
+  const pcCaPrices = new Map<string, number>(); // group_key → Pokemon Center CA price (MSRP)
   for (const raw of Object.values(state.products ?? {})) {
     if (!raw.group_key || raw.price == null || raw.price < 3) continue;
     const list = byGroup.get(raw.group_key) ?? [];
     list.push({ retailer: raw.retailer, price: raw.price, url: raw.url, in_stock: raw.in_stock });
     byGroup.set(raw.group_key, list);
+    if (raw.retailer === "Pokemon Center CA" && raw.price > 0) {
+      pcCaPrices.set(raw.group_key, raw.price);
+    }
   }
 
   const products = Object.entries(state.best_prices)
@@ -297,6 +318,9 @@ function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: Sto
       const bestRetailerEntry = allRetailers.find(r => r.retailer === bestPrice.retailer);
       const inStock = bestRetailerEntry ? bestRetailerEntry.in_stock : true;
 
+      const msrp = pcCaPrices.get(group_key) ?? null;
+      const deal_score = computeDealScore(bestPrice.price, allTimeLow, sevenDayChange, msrp);
+
       const product: Product = {
         group_key,
         name: bestPrice.name,
@@ -316,6 +340,8 @@ function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: Sto
         language: extractLanguage(bestPrice.name),
         product_type: extractProductType(bestPrice.name),
         set_name: extractSetName(bestPrice.name),
+        msrp,
+        deal_score,
       };
 
       return product;

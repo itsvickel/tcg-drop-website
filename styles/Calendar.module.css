@@ -1,0 +1,177 @@
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.backLink {
+  color: #58a6ff;
+  text-decoration: none;
+  font-size: 0.88rem;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+.backLink:hover { text-decoration: underline; }
+
+.title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #c9d1d9;
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  color: #8b949e;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.section { margin-bottom: 40px; }
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #21262d;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 20px;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: #58a6ff; }
+.card.released { opacity: 0.7; }
+.card.soon { border-color: #d29922; }
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.series {
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.typeBadge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.typeMain { background: rgba(88,166,255,0.15); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); }
+.typeSpecial { background: rgba(210,153,34,0.15); color: #d29922; border: 1px solid rgba(210,153,34,0.3); }
+
+.countdownBadge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #3fb950;
+  background: rgba(63,185,80,0.1);
+  border: 1px solid rgba(63,185,80,0.3);
+  padding: 3px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.countdownSoon {
+  color: #d29922;
+  background: rgba(210,153,34,0.1);
+  border-color: rgba(210,153,34,0.3);
+}
+
+.releasedBadge {
+  font-size: 0.72rem;
+  color: #6e7681;
+  background: #21262d;
+  border: 1px solid #30363d;
+  padding: 3px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.setName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #c9d1d9;
+  margin: 0 0 4px;
+}
+
+.releaseDate {
+  font-size: 0.85rem;
+  color: #8b949e;
+  margin: 0 0 10px;
+}
+
+.notes {
+  font-size: 0.82rem;
+  color: #6e7681;
+  font-style: italic;
+  margin: 0 0 12px;
+}
+
+.products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.productChip {
+  font-size: 0.75rem;
+  color: #8b949e;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.loading {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.skeletonCard {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 10px;
+  height: 180px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.error {
+  color: #f85149;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 40px;
+}

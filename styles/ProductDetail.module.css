@@ -133,6 +133,28 @@
   background: rgba(88, 166, 255, 0.15);
 }
 
+.restockBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(63, 185, 80, 0.08);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  border-radius: 6px;
+  color: #8b949e;
+  font-size: 0.8rem;
+  font-weight: 500;
+  height: 34px;
+  padding: 0 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.restockBtn:hover {
+  border-color: rgba(63, 185, 80, 0.65);
+  color: #3fb950;
+  background: rgba(63, 185, 80, 0.15);
+}
+
 .closeBtn {
   background: none;
   border: 1px solid #30363d;

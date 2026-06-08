@@ -1,0 +1,133 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  text-align: center;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #8b949e;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.closeBtn:hover { color: #c9d1d9; background: #21262d; }
+
+.icon { font-size: 2rem; margin-bottom: 8px; }
+
+.title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #c9d1d9;
+  margin: 0 0 6px;
+}
+
+.productName {
+  font-size: 0.88rem;
+  color: #8b949e;
+  margin: 0 0 4px;
+  line-height: 1.4;
+}
+
+.subtitle {
+  font-size: 0.8rem;
+  color: #f85149;
+  margin: 0 0 20px;
+}
+
+.form { display: flex; flex-direction: column; gap: 16px; text-align: left; }
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #8b949e;
+}
+
+.input {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.input:focus { outline: none; border-color: #58a6ff; }
+
+.submitBtn {
+  background: #238636;
+  border: 1px solid #2ea043;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.submitBtn:hover:not(:disabled) { background: #2ea043; }
+.submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.errorMsg {
+  color: #f85149;
+  font-size: 0.82rem;
+  margin: 0;
+  text-align: center;
+}
+
+.disclaimer {
+  font-size: 0.78rem;
+  color: #6e7681;
+  text-align: center;
+  margin: 0;
+}
+
+.successBox {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.successMsg {
+  color: #3fb950;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.doneBtn {
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 8px 24px;
+  cursor: pointer;
+}
+.doneBtn:hover { background: #30363d; }

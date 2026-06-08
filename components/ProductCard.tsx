@@ -35,6 +35,8 @@ export type Product = {
   language: string;
   product_type: string;
   set_name: string;
+  msrp: number | null;
+  deal_score: number;
 };
 
 type ProductCardProps = {
@@ -164,6 +166,9 @@ export default function ProductCard({
               <span className={`${styles.badge} ${styles.badgeRise}`}>
                 {`↑${Math.abs(weeklyChange!).toFixed(0)}%`}
               </span>
+            )}
+            {product.deal_score >= 70 && !isAllTimeLow && (
+              <span className={`${styles.badge} ${styles.badgeHotDeal}`}>🔥 HOT DEAL</span>
             )}
           </div>
           {onToggleWishlist && (

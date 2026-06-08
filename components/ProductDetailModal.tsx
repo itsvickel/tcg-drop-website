@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AlertModal from "./AlertModal";
+import RestockModal from "./RestockModal";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
@@ -85,10 +86,12 @@ function ChartTooltip({ active, payload, label }: TooltipPayload) {
 type Props = {
   product: Product;
   onClose: () => void;
+  autoOpenAlert?: boolean;
 };
 
-export default function ProductDetailModal({ product, onClose }: Props) {
-  const [showAlert, setShowAlert] = useState(false);
+export default function ProductDetailModal({ product, onClose, autoOpenAlert }: Props) {
+  const [showAlert,   setShowAlert]   = useState(false);
+  const [showRestock, setShowRestock] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -99,6 +102,10 @@ export default function ProductDetailModal({ product, onClose }: Props) {
       document.body.style.overflow = "";
     };
   }, [onClose]);
+
+  useEffect(() => {
+    if (autoOpenAlert) setShowAlert(true);
+  }, [autoOpenAlert]);
 
   const sorted = [...product.history].sort((a, b) => a.date.localeCompare(b.date));
   const prices = sorted.map((e) => e.price);
@@ -134,6 +141,11 @@ export default function ProductDetailModal({ product, onClose }: Props) {
             </div>
           </div>
           <div className={styles.headerActions}>
+            {!product.in_stock && (
+              <button className={styles.restockBtn} onClick={() => setShowRestock(true)} type="button" aria-label="Notify when back in stock" title="Notify when back in stock">
+                📦 Notify restock
+              </button>
+            )}
             <button className={styles.alertBtn} onClick={() => setShowAlert(true)} type="button" aria-label="Set price alert" title="Set price alert">
               🔔 Set alert
             </button>
@@ -155,6 +167,18 @@ export default function ProductDetailModal({ product, onClose }: Props) {
             <div className={styles.stat}>
               <span className={styles.statLabel}>All-Time High</span>
               <strong className={styles.statValue}>${allTimeHigh.toFixed(2)}</strong>
+            </div>
+            {product.msrp && (
+              <div className={styles.stat}>
+                <span className={styles.statLabel}>MSRP (PC CA)</span>
+                <strong className={styles.statValue}>${product.msrp.toFixed(2)}</strong>
+              </div>
+            )}
+            <div className={styles.stat}>
+              <span className={styles.statLabel}>Deal Score</span>
+              <strong className={styles.statValue} style={{ color: product.deal_score >= 70 ? "#ffa657" : product.deal_score >= 40 ? "#3fb950" : "#8b949e" }}>
+                {product.deal_score}/100
+              </strong>
             </div>
             <div className={styles.stat}>
               <span className={styles.statLabel}>Stores Found</span>
@@ -274,6 +298,9 @@ export default function ProductDetailModal({ product, onClose }: Props) {
 
       {showAlert && (
         <AlertModal product={product} onClose={() => setShowAlert(false)} />
+      )}
+      {showRestock && (
+        <RestockModal product={product} onClose={() => setShowRestock(false)} />
       )}
     </div>
   );

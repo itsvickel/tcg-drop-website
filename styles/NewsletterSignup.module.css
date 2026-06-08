@@ -92,6 +92,23 @@
   line-height: 1.5;
 }
 
+.prefs {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.prefCheck {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.prefCheck input { cursor: pointer; accent-color: var(--blue); }
+
 .errorText {
   margin: 8px 0 0;
   font-size: 0.82rem;

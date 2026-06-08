@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { randomUUID } from "crypto";
+import { rateLimit, getClientIp } from "../../lib/rateLimit";
 
 export type Alert = {
   id: string;
@@ -63,6 +64,13 @@ async function writeAlerts(data: AlertsFile, sha: string): Promise<void> {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!TOKEN) {
     return res.status(500).json({ error: "ALERT_GITHUB_TOKEN not configured" });
+  }
+
+  const ip = getClientIp(req);
+  const { allowed, retryAfterMs } = rateLimit(ip);
+  if (!allowed) {
+    res.setHeader("Retry-After", Math.ceil(retryAfterMs / 1000).toString());
+    return res.status(429).json({ error: "Too many requests. Please wait a minute." });
   }
 
   // POST — subscribe

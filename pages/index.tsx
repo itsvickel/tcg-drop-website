@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import useSWR from "swr";
 import ProductCard, { Product } from "../components/ProductCard";
+import ProductDetailModal from "../components/ProductDetailModal";
 import Footer from "../components/Footer";
 import NewsletterSignup from "../components/NewsletterSignup";
 import { useWishlist } from "../hooks/useWishlist";
@@ -14,8 +15,8 @@ type ApiResponse = {
   retailers_count: number;
 };
 
-type SortOption = "price_asc" | "price_desc" | "drop" | "atl_pct" | "updated" | "name";
-const VALID_SORTS: SortOption[] = ["price_asc", "price_desc", "drop", "atl_pct", "updated", "name"];
+type SortOption = "price_asc" | "price_desc" | "drop" | "atl_pct" | "deal" | "updated" | "name";
+const VALID_SORTS: SortOption[] = ["price_asc", "price_desc", "drop", "atl_pct", "deal", "updated", "name"];
 
 const REFRESH_MS = 5 * 60 * 1000;
 const PAGE_SIZE  = 48;
@@ -42,6 +43,10 @@ function byAllTimeLowPct(a: Product, b: Product): number {
   return aPct - bPct;
 }
 
+function byDealScore(a: Product, b: Product): number {
+  return b.deal_score - a.deal_score;
+}
+
 function isAtAllTimeLow(product: Product): boolean {
   return product.price <= product.all_time_low + 0.0001;
 }
@@ -49,6 +54,8 @@ function isAtAllTimeLow(product: Product): boolean {
 export default function HomePage() {
   const router   = useRouter();
   const wishlist = useWishlist();
+  const [autoAlertProduct, setAutoAlertProduct] = useState<Product | null>(null);
+  const pendingAlertKey = useRef<string | null>(null);
 
   const { data, error, isLoading } = useSWR<ApiResponse>("/api/products", fetcher, {
     refreshInterval: REFRESH_MS,
@@ -76,7 +83,7 @@ export default function HomePage() {
   // ── Sync from URL on first load ──────────────────────────────────────────
   useEffect(() => {
     if (!router.isReady) return;
-    const { q, s, r, lang, type, set, pmin, pmax, stock, p, d, l, n, w } = router.query;
+    const { q, s, r, lang, type, set, pmin, pmax, stock, p, d, l, n, w, alert: alertParam } = router.query;
     if (typeof q    === "string") setQuery(q);
     if (typeof s    === "string" && VALID_SORTS.includes(s as SortOption)) setSort(s as SortOption);
     if (typeof r    === "string") setRetailer(r);
@@ -91,6 +98,7 @@ export default function HomePage() {
     if (l     === "1") setLowOnly(true);
     if (n     === "1") setNewOnly(true);
     if (w     === "1") setWishlistOnly(true);
+    if (typeof alertParam === "string") pendingAlertKey.current = alertParam;
     setUrlReady(true);
   }, [router.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -117,6 +125,16 @@ export default function HomePage() {
       inStockOnly, hidePreorders, dealsOnly, lowOnly, newOnly, wishlistOnly, urlReady]);
 
   const products = data?.products ?? [];
+
+  // ── Auto-open detail modal from ?alert=group_key ─────────────────────────
+  useEffect(() => {
+    if (!pendingAlertKey.current || products.length === 0) return;
+    const match = products.find((p) => p.group_key === pendingAlertKey.current);
+    if (match) {
+      setAutoAlertProduct(match);
+      pendingAlertKey.current = null;
+    }
+  }, [products]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset pagination whenever any filter changes
   useEffect(() => {
@@ -212,6 +230,7 @@ export default function HomePage() {
       case "price_desc": next.sort((a, b) => b.price - a.price); break;
       case "drop":       next.sort(byLargestDrop); break;
       case "atl_pct":    next.sort(byAllTimeLowPct); break;
+      case "deal":       next.sort(byDealScore); break;
       case "updated":    next.sort(byUpdatedDesc); break;
       case "name":       next.sort((a, b) => a.name.localeCompare(b.name)); break;
       default:           next.sort((a, b) => a.price - b.price);
@@ -296,6 +315,8 @@ export default function HomePage() {
                 ♥ My List{` (${wishlist.count})`}
               </Link>
             )}
+            <Link href="/calendar" className={styles.calendarNav}>📅 Calendar</Link>
+            <Link href="/alerts" className={styles.calendarNav}>🔔 My Alerts</Link>
             <div className={styles.liveIndicator}>
               <span className={styles.pulseDot} />
               <span>Live</span>
@@ -349,6 +370,7 @@ export default function HomePage() {
               <option value="price_asc">Price ↑ Low to High</option>
               <option value="price_desc">Price ↓ High to Low</option>
               <option value="drop">Biggest 7-Day Drop</option>
+              <option value="deal">Best Deal Score</option>
               <option value="atl_pct">Closest to All-Time Low</option>
               <option value="updated">Recently Updated</option>
               <option value="name">Name A–Z</option>
@@ -570,6 +592,13 @@ export default function HomePage() {
         )}
 
         {/* ── Footer ──────────────────────────────────────────────────────── */}
+        {autoAlertProduct && (
+          <ProductDetailModal
+            product={autoAlertProduct}
+            autoOpenAlert={true}
+            onClose={() => setAutoAlertProduct(null)}
+          />
+        )}
         <Footer
           syncedAt={data?.generated_at ?? null}
           retailersCount={data?.retailers_count ?? stats.retailers}
