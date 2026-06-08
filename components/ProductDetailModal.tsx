@@ -63,6 +63,7 @@ function ChartTooltip({ active, payload, label }: TooltipPayload) {
   const entry = payload[0].payload;
   const date = label
     ? new Date(label).toLocaleDateString("en-CA", {
+        timeZone: "America/Toronto",
         month: "long", day: "numeric", year: "numeric",
       })
     : "";
@@ -205,10 +206,12 @@ export default function ProductDetailModal({ product, onClose }: Props) {
                     <XAxis
                       dataKey="date"
                       tick={{ fill: "#8b949e", fontSize: 11 }}
-                      tickFormatter={(d: string) => {
-                        const dt = new Date(d);
-                        return `${dt.getMonth() + 1}/${dt.getDate()}`;
-                      }}
+                      tickFormatter={(d: string) =>
+                        new Date(d).toLocaleDateString("en-CA", {
+                          timeZone: "America/Toronto",
+                          month: "numeric", day: "numeric",
+                        })
+                      }
                       minTickGap={28}
                     />
                     <YAxis
@@ -246,6 +249,7 @@ export default function ProductDetailModal({ product, onClose }: Props) {
                   <div key={i} className={styles.historyRow}>
                     <span className={styles.historyDate}>
                       {new Date(entry.date).toLocaleDateString("en-CA", {
+                        timeZone: "America/Toronto",
                         month: "short", day: "numeric",
                       })}
                     </span>
