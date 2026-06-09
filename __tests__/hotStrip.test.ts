@@ -21,6 +21,7 @@ function makeProduct(overrides: Partial<Product>): Product {
     language: "English",
     product_type: "Booster Box",
     set_name: "Test Set",
+    variant: "",
     msrp: null,
     deal_score: 50,
     ...overrides,

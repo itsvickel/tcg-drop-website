@@ -1,7 +1,7 @@
 /* ── Hero ────────────────────────────────────────────────── */
 
 .hero {
-  padding: 56px 20px 48px;
+  padding: 52px 20px 44px;
   max-width: 1320px;
   margin: 0 auto;
 }
@@ -10,12 +10,28 @@
   max-width: 680px;
 }
 
+.heroGameBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--game-text);
+  background: var(--game-bg);
+  border: 1px solid var(--game-border);
+  padding: 5px 12px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+}
+
 .heroTitle {
   margin: 0 0 12px;
   font-size: clamp(2rem, 4.5vw, 3.2rem);
   font-weight: 700;
   line-height: 1.15;
-  background: linear-gradient(110deg, #f0f6fc 0%, #58a6ff 50%, #3fb950 100%);
+  background: var(--hero-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -66,28 +82,54 @@
 
 .header {
   position: sticky;
-  top: 0;
+  top: var(--tabbar-height, 54px);
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 0;
+  padding: 10px 0;
   backdrop-filter: blur(10px);
   background: linear-gradient(180deg, rgba(13, 17, 23, 0.97), rgba(13, 17, 23, 0.88));
-  border-bottom: 1px solid rgba(48, 54, 61, 0.7);
+  border-bottom: 1px solid rgba(48, 54, 61, 0.55);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
 }
 
 .title {
   margin: 0;
-  font-size: clamp(1.4rem, 2.2vw, 2rem);
-  color: #f0f6fc;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--game-text);
+  white-space: nowrap;
 }
 
 .subtitle {
-  margin: 6px 0 0;
-  font-size: 0.92rem;
+  margin: 0;
+  font-size: 0.8rem;
   color: var(--muted);
+  white-space: nowrap;
+}
+
+.syncChip {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: rgba(22, 27, 34, 0.8);
+  border: 1px solid rgba(48, 54, 61, 0.8);
+  padding: 3px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.syncChipStale {
+  color: var(--amber);
+  border-color: rgba(210, 153, 34, 0.35);
+  background: rgba(210, 153, 34, 0.06);
 }
 
 .headerRight {
@@ -206,15 +248,34 @@
   border: 1px solid var(--border);
   background: linear-gradient(160deg, rgba(22, 27, 34, 0.92), rgba(13, 17, 23, 0.95));
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 13px 16px;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, transform 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.statCard::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--border);
+  border-radius: 12px 0 0 12px;
+  transition: background 0.3s;
 }
 
 .statCard:hover {
-  border-color: rgba(88, 166, 255, 0.3);
+  border-color: rgba(88, 166, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.statCard:hover::before {
+  background: var(--game);
 }
 
 .statCard strong {
@@ -335,18 +396,23 @@
 
 .controlInput {
   width: 100%;
-  background: #0d1117;
+  background: rgba(13, 17, 23, 0.8);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 10px 12px;
   border-radius: 8px;
   font-family: "Syne", sans-serif;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .controlInput:focus {
-  border-color: var(--blue);
+  border-color: var(--game);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+  box-shadow: 0 0 0 2px var(--game-bg);
+}
+
+.controlInput:hover:not(:focus) {
+  border-color: rgba(88, 166, 255, 0.3);
 }
 
 .toggle {
@@ -364,11 +430,11 @@
 }
 
 .toggle:hover {
-  border-color: rgba(88, 166, 255, 0.4);
+  border-color: var(--game-border);
 }
 
 .toggle input {
-  accent-color: var(--blue);
+  accent-color: var(--game);
   cursor: pointer;
 }
 

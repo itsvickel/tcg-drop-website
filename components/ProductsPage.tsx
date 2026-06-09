@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import useSWR from "swr";
 import ProductCard, { Product } from "./ProductCard";
 import ProductDetailModal from "./ProductDetailModal";
 import Footer from "./Footer";
+import GameTabBar from "./GameTabBar";
 import NewsletterSignup from "./NewsletterSignup";
 import { useWishlist } from "../hooks/useWishlist";
 import styles from "../styles/Home.module.css";
@@ -61,6 +61,12 @@ export default function ProductsPage({ tcg }: Props) {
   const config  = TCG_CONFIGS[tcg];
   const router  = useRouter();
   const wishlist = useWishlist();
+
+  // Apply game-specific theme to <html> for CSS var inheritance
+  useEffect(() => {
+    document.documentElement.setAttribute("data-tcg", tcg);
+    return () => { document.documentElement.removeAttribute("data-tcg"); };
+  }, [tcg]);
   const [autoAlertProduct, setAutoAlertProduct] = useState<Product | null>(null);
   const [hotProduct, setHotProduct] = useState<Product | null>(null);
   const pendingAlertKey = useRef<string | null>(null);
@@ -330,10 +336,17 @@ export default function ProductsPage({ tcg }: Props) {
         />
       </Head>
 
+      {/* ── Game tab bar ──────────────────────────────────────────────────── */}
+      <GameTabBar tcg={tcg} />
+
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className={styles.hero}>
         <div className={styles.heroContent}>
-          <h1 className={styles.heroTitle}>{config.displayName} Price Tracker</h1>
+          <div className={styles.heroGameBadge}>
+            <span>{tcg === "mtg" ? "⚡" : "🔴"}</span>
+            {config.shortName} Price Tracker
+          </div>
+          <h1 className={styles.heroTitle}>{config.displayName}</h1>
           <p className={styles.heroTagline}>
             Track sealed product prices across {stats.retailers || "50"}+ Canadian retailers.
             Prices updated automatically every 3 hours.
@@ -361,30 +374,37 @@ export default function ProductsPage({ tcg }: Props) {
       </section>
 
       <div className={styles.page}>
-        {/* ── Sticky compact header ───────────────────────────────────────── */}
+        {/* ── Sticky context bar ──────────────────────────────────────────── */}
         <header className={styles.header}>
-          <div>
-            <h2 className={styles.title}>{config.displayName} Tracker</h2>
-            <p className={styles.subtitle}>Live Canadian pricing</p>
+          <div className={styles.headerLeft}>
+            <h2 className={styles.title}>{config.displayName}</h2>
+            <span className={styles.subtitle}>Live Canadian pricing</span>
           </div>
           <div className={styles.headerRight}>
-            <nav className={styles.tcgSwitcher}>
-              <Link href="/pokemon" className={tcg === "pokemon" ? styles.tcgActive : styles.tcgLink}>{TCG_CONFIGS.pokemon.shortName}</Link>
-              <span className={styles.tcgDivider}>|</span>
-              <Link href="/mtg" className={tcg === "mtg" ? styles.tcgActive : styles.tcgLink}>{TCG_CONFIGS.mtg.shortName}</Link>
-            </nav>
-            {wishlist.count > 0 && (
-              <Link href="/wishlist" className={styles.wishlistNav}>
-                ♥ My List{` (${wishlist.count})`}
-              </Link>
+            {data?.generated_at && (() => {
+              const syncedAt = new Date(data.generated_at);
+              const ageH = (Date.now() - syncedAt.getTime()) / (1000 * 60 * 60);
+              const isStale = ageH > 2;
+              return (
+                <span className={`${styles.syncChip} ${isStale ? styles.syncChipStale : ""}`}>
+                  {isStale ? "⚠ " : ""}
+                  {syncedAt.toLocaleString("en-CA", {
+                    timeZone: "America/Toronto",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              );
+            })()}
+            {activeFilterCount > 0 && (
+              <button
+                className={styles.clearFiltersBtn}
+                onClick={clearFilters}
+                type="button"
+              >
+                ✕ {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
+              </button>
             )}
-            <Link href={`/calendar?tcg=${tcg}`} className={styles.calendarNav}>📅 Calendar</Link>
-            <Link href={`/digest?tcg=${tcg}`} className={styles.calendarNav}>🔥 Digest</Link>
-            <Link href="/alerts" className={styles.calendarNav}>🔔 My Alerts</Link>
-            <div className={styles.liveIndicator}>
-              <span className={styles.pulseDot} />
-              <span>Live</span>
-            </div>
           </div>
         </header>
 
@@ -614,24 +634,6 @@ export default function ProductsPage({ tcg }: Props) {
           <h2>
             {`Showing ${visibleProducts.length} of ${filteredProducts.length} product${filteredProducts.length !== 1 ? "s" : ""}`}
           </h2>
-          {data?.generated_at && (() => {
-            const syncedAt = new Date(data.generated_at);
-            const ageH     = (Date.now() - syncedAt.getTime()) / (1000 * 60 * 60);
-            const isStale  = ageH > 2;
-            const label    = `Synced ${syncedAt.toLocaleString("en-CA", {
-              timeZone: "America/Toronto",
-              hour: "numeric",
-              minute: "2-digit",
-            })}`;
-            return (
-              <span
-                className={isStale ? styles.staleLabel : undefined}
-                title={isStale ? `Data is ${Math.floor(ageH)}h old — prices may have changed` : undefined}
-              >
-                {isStale ? `⚠ ${label}` : label}
-              </span>
-            );
-          })()}
         </section>
 
         {error && (

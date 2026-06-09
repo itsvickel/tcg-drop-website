@@ -1,0 +1,175 @@
+.tabBar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  background: rgba(13, 17, 23, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(48, 54, 61, 0.85);
+}
+
+.inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.brand {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f0f6fc;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.brandDot {
+  color: var(--game);
+  transition: color 0.3s;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(22, 27, 34, 0.7);
+  border: 1px solid rgba(48, 54, 61, 0.8);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.18s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  color: #8b949e;
+}
+
+.tab:hover {
+  color: #c9d1d9;
+  background: rgba(48, 54, 61, 0.6);
+}
+
+.tabActivePokemon {
+  color: #ff8a80 !important;
+  background: rgba(229, 57, 53, 0.12) !important;
+  border-color: rgba(229, 57, 53, 0.35) !important;
+}
+
+.tabActiveMtg {
+  color: #d2baff !important;
+  background: rgba(123, 94, 167, 0.14) !important;
+  border-color: rgba(123, 94, 167, 0.4) !important;
+}
+
+.tabIcon {
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.navLink {
+  font-size: 0.8rem;
+  color: #8b949e;
+  text-decoration: none;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(48, 54, 61, 0.7);
+  background: rgba(22, 27, 34, 0.5);
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.navLink:hover {
+  color: #c9d1d9;
+  background: rgba(48, 54, 61, 0.7);
+  border-color: var(--game-border);
+}
+
+.navLinkWishlist {
+  font-size: 0.8rem;
+  color: #f85149;
+  text-decoration: none;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(248, 81, 73, 0.25);
+  background: rgba(248, 81, 73, 0.07);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.navLinkWishlist:hover {
+  background: rgba(248, 81, 73, 0.14);
+  border-color: rgba(248, 81, 73, 0.5);
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #3fb950;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(63, 185, 80, 0.2);
+  background: rgba(63, 185, 80, 0.06);
+  flex-shrink: 0;
+}
+
+.pulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3fb950;
+  box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7);
+  animation: pulse 1.6s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(63, 185, 80, 0.7); }
+  70%  { box-shadow: 0 0 0 7px rgba(63, 185, 80, 0);   }
+  100% { box-shadow: 0 0 0 0   rgba(63, 185, 80, 0);   }
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .brand { display: none; }
+  .navLink { display: none; }
+  .navLinkWishlist { display: none; }
+  .right { gap: 8px; }
+  .live { padding: 4px 8px; }
+}
+
+@media (max-width: 480px) {
+  .inner { padding: 0 12px; gap: 10px; }
+  .tabs { gap: 2px; padding: 2px; }
+  .tab { padding: 5px 10px; font-size: 0.8rem; }
+}
