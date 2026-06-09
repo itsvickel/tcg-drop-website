@@ -357,9 +357,9 @@ export default function ProductsPage({ tcg }: Props) {
           </div>
           <div className={styles.headerRight}>
             <nav className={styles.tcgSwitcher}>
-              <Link href="/pokemon" className={tcg === "pokemon" ? styles.tcgActive : styles.tcgLink}>Pokemon</Link>
+              <Link href="/pokemon" className={tcg === "pokemon" ? styles.tcgActive : styles.tcgLink}>{TCG_CONFIGS.pokemon.shortName}</Link>
               <span className={styles.tcgDivider}>|</span>
-              <Link href="/mtg" className={tcg === "mtg" ? styles.tcgActive : styles.tcgLink}>MTG</Link>
+              <Link href="/mtg" className={tcg === "mtg" ? styles.tcgActive : styles.tcgLink}>{TCG_CONFIGS.mtg.shortName}</Link>
             </nav>
             {wishlist.count > 0 && (
               <Link href="/wishlist" className={styles.wishlistNav}>

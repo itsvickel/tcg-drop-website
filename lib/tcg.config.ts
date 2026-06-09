@@ -150,7 +150,7 @@ export const TCG_CONFIGS: Record<TcgSlug, TcgConfig> = {
     displayName: "Pokémon TCG",
     shortName: "Pokemon",
     accentColor: "#e53935",
-    githubDataPath: "pokemon",
+    githubDataPath: "",
     msrpRetailer: "Pokemon Center CA",
     knownSets: POKEMON_KNOWN_SETS,
     knownSetPatterns: [

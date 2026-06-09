@@ -41,10 +41,18 @@ export default async function handler(
   if (!REPO || !TOKEN) return res.status(500).json({ error: "Missing env vars" });
 
   try {
-    const url = `https://api.github.com/repos/${REPO}/contents/${config.githubDataPath}/release_calendar.json`;
+    const filePath = config.githubDataPath
+      ? `${config.githubDataPath}/release_calendar.json`
+      : "release_calendar.json";
+    const url = `https://api.github.com/repos/${REPO}/contents/${filePath}`;
     const raw = await fetch(url, {
       headers: { Authorization: `Bearer ${TOKEN}`, Accept: "application/vnd.github.raw+json" },
     });
+    if (raw.status === 404) {
+      const empty: CalendarResponse = { sets: [] };
+      cache.set(config.slug, { expiresAt: Date.now() + CACHE_TTL_MS, data: empty });
+      return res.status(200).json(empty);
+    }
     if (!raw.ok) throw new Error(`GitHub: ${raw.status}`);
     const data = await raw.json() as CalendarResponse;
     cache.set(config.slug, { expiresAt: Date.now() + CACHE_TTL_MS, data });

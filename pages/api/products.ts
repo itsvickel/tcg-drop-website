@@ -119,11 +119,17 @@ function computeDealScore(
   change7d: number | null,
   msrp: number | null
 ): number {
+  // When MSRP is unavailable (e.g. MTG), redistribute its 30pts to ATL/drop
+  // so the score can still reach 100. With MSRP: ATL=40, drop=30, MSRP=30.
+  // Without MSRP: ATL=60, drop=40, MSRP=0.
+  const hasMsrp  = msrp !== null && msrp > 0;
+  const atlMax   = hasMsrp ? 40 : 60;
+  const dropMax  = hasMsrp ? 30 : 40;
   const atlSpread = Math.max(atl * 0.5, 0.01);
-  const atlScore = atl > 0 ? Math.max(0, 1 - (price - atl) / atlSpread) * 40 : 0;
+  const atlScore  = atl > 0 ? Math.max(0, 1 - (price - atl) / atlSpread) * atlMax : 0;
   const dropScore = change7d !== null && change7d < 0
-    ? Math.min(30, (Math.abs(change7d) / 15) * 30) : 0;
-  const msrpScore = msrp !== null && msrp > price
+    ? Math.min(dropMax, (Math.abs(change7d) / 15) * dropMax) : 0;
+  const msrpScore = hasMsrp && msrp > price
     ? Math.min(30, ((msrp - price) / msrp) * 2 * 30) : 0;
   return Math.round(Math.min(100, atlScore + dropScore + msrpScore));
 }
@@ -180,8 +186,12 @@ const KNOWN_LANGUAGES = [
 ];
 
 function extractLanguage(name: string): string {
-  const m = name.match(/^\(([^)]+)\)/);
-  if (m && KNOWN_LANGUAGES.includes(m[1])) return m[1];
+  // Match any parenthetical in the name — covers both leading and trailing positions
+  const matches = name.match(/\(([^)]+)\)/g) ?? [];
+  for (const m of matches) {
+    const inner = m.slice(1, -1);
+    if (KNOWN_LANGUAGES.includes(inner)) return inner;
+  }
   return "English";
 }
 
@@ -379,13 +389,14 @@ export default async function handler(
     return;
   }
 
-  const prefix = config.githubDataPath;
+  const p = config.githubDataPath;
+  const apiPath = (file: string) => p ? `${p}/${file}` : file;
 
   try {
     const [state, history, stockChanges] = await Promise.all([
-      fetchJson<StateJson>(repo, token, `${prefix}/state.json`),
-      fetchJson<HistoryJson>(repo, token, `${prefix}/price_history.json`).catch(() => ({} as HistoryJson)),
-      fetchJson<StockChangesJson>(repo, token, `${prefix}/stock_changes.json`).catch(() => ({ events: [] } as StockChangesJson)),
+      fetchJson<StateJson>(repo, token, apiPath("state.json")),
+      fetchJson<HistoryJson>(repo, token, apiPath("price_history.json")).catch(() => ({} as HistoryJson)),
+      fetchJson<StockChangesJson>(repo, token, apiPath("stock_changes.json")).catch(() => ({ events: [] } as StockChangesJson)),
     ]);
 
     const payload = toApiResponse(state, history, stockChanges, config);
