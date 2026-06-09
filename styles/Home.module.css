@@ -130,6 +130,42 @@
   color: #58a6ff;
 }
 
+/* ── TCG Switcher ───────────────────────────────────────── */
+
+.tcgSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+}
+
+.tcgLink {
+  color: #8b949e;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.tcgLink:hover {
+  color: #e6edf3;
+  background: #21262d;
+}
+
+.tcgActive {
+  color: #e6edf3;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #21262d;
+}
+
+.tcgDivider {
+  color: #30363d;
+  user-select: none;
+}
+
 .liveIndicator {
   display: inline-flex;
   align-items: center;

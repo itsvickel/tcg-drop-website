@@ -80,11 +80,11 @@ function buildHtml(deals: DigestDeal[], week: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Pokemon TCG Top Deals — Week of ${week}</title>
+  <title>TCG Drop Top Deals — Week of ${week}</title>
 </head>
 <body style="margin:0;padding:0;background:#0d1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:640px;margin:0 auto;padding:24px 16px;">
-    <h1 style="color:#c9d1d9;font-size:20px;margin:0 0 4px;">🔥 Top Pokemon TCG deals</h1>
+    <h1 style="color:#c9d1d9;font-size:20px;margin:0 0 4px;">🔥 Top TCG deals</h1>
     <p style="color:#8b949e;font-size:13px;margin:0 0 24px;">Week of ${week} &middot; Canadian retailers &middot; Prices in CAD</p>
     <table style="width:100%;border-collapse:collapse;">
       <tbody>${rows}</tbody>

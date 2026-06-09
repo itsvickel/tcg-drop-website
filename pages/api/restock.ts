@@ -14,7 +14,7 @@ export type RestockAlert = {
 
 type RestockFile = { alerts: RestockAlert[] };
 
-const REPO      = process.env.ALERT_GITHUB_REPO ?? "itsvickel/pokemon-drop-alert";
+const REPO      = process.env.ALERT_GITHUB_REPO ?? "itsvickel/tcg-drop-alert";
 const TOKEN     = process.env.ALERT_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN ?? "";
 const FILE_PATH = "restock_alerts.json";
 const BRANCH    = "main";

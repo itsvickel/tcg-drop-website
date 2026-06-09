@@ -1,7 +1,7 @@
-# Pokemon TCG Price Tracker
+# TCG Drop
 
-Next.js 14 web app for tracking live Pokemon TCG prices across Canadian retailers.
-It reads `state.json` and `price_history.json` from a private GitHub repository and presents searchable, sortable product cards with 7-day trend context.
+Next.js 14 web app for tracking live Pokémon TCG and Magic: The Gathering prices across Canadian retailers.
+It reads `{tcg}/state.json` and `{tcg}/price_history.json` from a private GitHub repository and presents searchable, sortable product cards with 7-day trend context.
 
 ## Stack
 
@@ -16,7 +16,7 @@ It reads `state.json` and `price_history.json` from a private GitHub repository 
 Create `.env.local` with:
 
 ```env
-GITHUB_REPO=itsvickel/pokemon-drop-alert
+GITHUB_REPO=itsvickel/tcg-drop-alert
 GITHUB_TOKEN=<private repo token>
 ```
 

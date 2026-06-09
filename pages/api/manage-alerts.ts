@@ -3,7 +3,7 @@ import type { Alert } from "./subscribe";
 import type { Subscriber } from "./newsletter";
 import type { RestockAlert } from "./restock";
 
-const REPO  = process.env.ALERT_GITHUB_REPO ?? "itsvickel/pokemon-drop-alert";
+const REPO  = process.env.ALERT_GITHUB_REPO ?? "itsvickel/tcg-drop-alert";
 const TOKEN = process.env.ALERT_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN ?? "";
 
 async function readFile<T>(fileName: string): Promise<T | null> {

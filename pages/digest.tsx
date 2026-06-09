@@ -36,7 +36,7 @@ export default function DigestPage({ digest }: Props) {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.heading}>🔥 Top Pokemon TCG deals</h1>
+      <h1 className={styles.heading}>🔥 Top TCG deals</h1>
       <p className={styles.sub}>
         Week of {digest.week} &middot; Canadian retailers &middot; Prices in CAD
       </p>

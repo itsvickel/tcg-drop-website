@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { getTcgConfig, type TcgConfig } from "../../lib/tcg.config";
 
 type StatePrice = {
   name: string;
@@ -95,7 +96,7 @@ type CacheItem = {
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
-let responseCache: CacheItem | null = null;
+const responseCache = new Map<string, CacheItem>();
 
 function parseDate(input: string): Date {
   const parsed = new Date(input);
@@ -184,7 +185,7 @@ function extractLanguage(name: string): string {
   return "English";
 }
 
-const PRODUCT_TYPE_PATTERNS: Array<[RegExp, string]> = [
+const POKEMON_TYPE_PATTERNS: Array<[RegExp, string]> = [
   [/ultra.{0,5}premium.{0,10}collection/i,                              "Ultra Premium Collection"],
   [/elite.{0,5}trainer.{0,5}box/i,                                      "Elite Trainer Box"],
   [/build.{0,5}&?.{0,5}battle.{0,5}(?:box|kit|stadium)/i,              "Build & Battle Box"],
@@ -207,68 +208,60 @@ const PRODUCT_TYPE_PATTERNS: Array<[RegExp, string]> = [
   [/\bcollection\b/i,                                                    "Collection"],
 ];
 
-function extractProductType(name: string): string {
-  for (const [pattern, type] of PRODUCT_TYPE_PATTERNS) {
+const MTG_TYPE_PATTERNS: Array<[RegExp, string]> = [
+  [/collector.{0,5}booster.{0,5}box/i,   "Collector Booster Box"],
+  [/collector.{0,5}booster/i,             "Collector Booster"],
+  [/play.{0,5}booster.{0,5}box/i,        "Play Booster Box"],
+  [/play.{0,5}booster/i,                  "Play Booster"],
+  [/draft.{0,5}booster.{0,5}box/i,       "Draft Booster Box"],
+  [/draft.{0,5}booster/i,                 "Draft Booster"],
+  [/set.{0,5}booster.{0,5}box/i,         "Set Booster Box"],
+  [/set.{0,5}booster/i,                   "Set Booster"],
+  [/jumpstart.{0,5}booster/i,             "Jumpstart Booster"],
+  [/\bjumpstart\b/i,                       "Jumpstart Booster"],
+  [/booster.{0,5}box/i,                   "Booster Box"],
+  [/commander.{0,5}collection/i,          "Commander Collection"],
+  [/commander.{0,5}deck/i,                "Commander Deck"],
+  [/\bcommander\b/i,                       "Commander Deck"],
+  [/prerelease.{0,5}kit/i,                "Prerelease Kit"],
+  [/\bprerelease\b/i,                      "Prerelease Kit"],
+  [/starter.{0,5}kit/i,                   "Starter Kit"],
+  [/secret.{0,5}lair/i,                   "Secret Lair"],
+  [/\bbundle\b/i,                          "Bundle"],
+  [/fat.{0,5}pack/i,                       "Bundle"],
+  [/booster.{0,5}pack|\bpack\b/i,          "Booster Pack"],
+  [/\bdisplay\b/i,                          "Display"],
+];
+
+function extractProductType(name: string, config: TcgConfig): string {
+  const patterns = config.slug === "mtg" ? MTG_TYPE_PATTERNS : POKEMON_TYPE_PATTERNS;
+  for (const [pattern, type] of patterns) {
     if (pattern.test(name)) return type;
   }
   return "Other";
 }
 
-// Sorted longest-first so more-specific names take precedence over shorter substrings.
-const KNOWN_SETS: string[] = ([
-  // English Mega Evolution era
-  "Pitch Black", "Mega Evolution",
-  // English SV
-  "Black Bolt & White Flare", "Destined Rivals", "Journey Together",
-  "Prismatic Evolutions", "Surging Sparks", "Stellar Crown",
-  "Shrouded Fable", "Twilight Masquerade", "Temporal Forces",
-  "Paldean Fates", "Paradox Rift", "Obsidian Flames", "Paldea Evolved",
-  // English SWSH
-  "Crown Zenith", "Silver Tempest", "Lost Origin", "Astral Radiance",
-  "Brilliant Stars", "Fusion Strike", "Evolving Skies", "Chilling Reign",
-  "Battle Styles", "Shining Fates", "Vivid Voltage", "Champions Path",
-  "Darkness Ablaze", "Rebel Clash", "Pokemon GO", "Celebrations",
-  // Special
-  "30th Celebration",
-  // Japanese SV
-  "Super Electric Breaker", "Glory of Team Rocket", "Terastal Festival",
-  "Battle Partners", "Stellar Miracle", "Paradise Dragon", "Heat Wave Arena",
-  "Night Wanderer", "Mask of Change", "Ancient Roar", "Future Flash",
-  "Snow Hazard", "Clay Burst", "Raging Surf", "Wild Force", "Cyber Judge",
-  "White Flare", "Black Bolt",
-  // Japanese SWSH
-  "Explosive Flame Walker", "Single Strike Master", "Rapid Strike Master",
-  "Astonishing Volt Tackle", "Incandescent Arcana", "Legendary Heartbeat",
-  "Paradigm Trigger", "Jet Black Spirit", "Vstar Universe",
-  "Space Juggler", "Time Gazer", "Silver Lance", "Star Birth", "Lost Abyss",
-  "Eevee Heroes", "Dark Phantasma", "Matchless Fighters", "Match Fighters",
-  "Battle Region", "Vmax Rising", "Fusion Arts", "Shiny Star V",
-  "Infinity Zone", "Blue Sky Stream", "Towering Perfection",
-  // Japanese SV base
-  "Shiny Treasure ex", "Scarlet ex", "Violet ex",
-  // Mega Evolution sub-sets (checked before "Mega Evolution" fallback)
-  "Phantasmal Flames", "Ascended Heroes", "Perfect Order", "Chaos Rising",
-  "Mega Inferno X", "Mega Symphonia", "Mega Brave", "Nihil Zero", "Abyss Eye",
-  // Chinese
-  "Savage Blade Awakening", "Dark Crystal Blaze", "Eternity Island",
-  "Blade Awakening", "Collect 151", "True Mystery",
-  // Numeric set name — added last so it only matches after all longer names fail
-  "151",
-] as string[]).sort((a, b) => b.length - a.length);
-
-function extractSetName(name: string): string {
+function extractSetName(name: string, config: TcgConfig): string {
   const lower = name.toLowerCase();
-  for (const set of KNOWN_SETS) {
+  for (const set of config.knownSets) {
     if (lower.includes(set.toLowerCase())) return set;
   }
-  // Mega Evolution product line (checked after all sub-sets so sub-sets win)
-  if (/mega.{0,5}evolution|ME0[1-9]/i.test(name)) return "Mega Evolution";
+  if (config.knownSetPatterns) {
+    for (const [pattern, setName] of config.knownSetPatterns) {
+      if (pattern.test(name)) return setName;
+    }
+  }
   return "";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: StockChangesJson): ApiResponse {
+function toApiResponse(
+  state: StateJson,
+  history: HistoryJson,
+  stockChanges: StockChangesJson,
+  config: TcgConfig
+): ApiResponse {
   const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const twoDaysAgoMs    = Date.now() - 48 * 60 * 60 * 1000;
   const recentBackInStock = new Set(
@@ -277,16 +270,15 @@ function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: Sto
       .map(e => e.group_key)
   );
 
-  // Build group_key → all retailer entries map from raw products
   const byGroup    = new Map<string, RetailerPrice[]>();
-  const pcCaPrices = new Map<string, number>(); // group_key → Pokemon Center CA price (MSRP)
+  const msrpPrices = new Map<string, number>();
   for (const raw of Object.values(state.products ?? {})) {
     if (!raw.group_key || raw.price == null || raw.price < 3) continue;
     const list = byGroup.get(raw.group_key) ?? [];
     list.push({ retailer: raw.retailer, price: raw.price, url: raw.url, in_stock: raw.in_stock });
     byGroup.set(raw.group_key, list);
-    if (raw.retailer === "Pokemon Center CA" && raw.price > 0) {
-      pcCaPrices.set(raw.group_key, raw.price);
+    if (config.msrpRetailer && raw.retailer === config.msrpRetailer && raw.price > 0) {
+      msrpPrices.set(raw.group_key, raw.price);
     }
   }
 
@@ -297,12 +289,10 @@ function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: Sto
       const allTimeLow = computeAllTimeLow(entries, bestPrice.price);
       const sevenDayChange = computeSevenDayChange(entries, bestPrice.price);
 
-      // Product is "new" if it appeared in price history within the last 7 days
       const isNew = entries.length > 0
         ? entries[0].date >= sevenDaysAgoStr
         : parseDate(bestPrice.updated).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-      // Deduplicate by retailer (keep lowest price per retailer), exclude the best retailer
       const allRetailers = byGroup.get(group_key) ?? [];
       const byRetailer = new Map<string, RetailerPrice>();
       for (const r of allRetailers) {
@@ -320,7 +310,7 @@ function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: Sto
       const bestRetailerEntry = allRetailers.find(r => r.retailer === bestPrice.retailer);
       const inStock = bestRetailerEntry ? bestRetailerEntry.in_stock : true;
 
-      const msrp = pcCaPrices.get(group_key) ?? null;
+      const msrp = msrpPrices.get(group_key) ?? null;
       const deal_score = computeDealScore(bestPrice.price, allTimeLow, sevenDayChange, msrp);
 
       const product: Product = {
@@ -340,8 +330,8 @@ function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: Sto
         in_stock: inStock,
         back_in_stock: recentBackInStock.has(group_key),
         language: extractLanguage(bestPrice.name),
-        product_type: extractProductType(bestPrice.name),
-        set_name: extractSetName(bestPrice.name),
+        product_type: extractProductType(bestPrice.name, config),
+        set_name: extractSetName(bestPrice.name, config),
         msrp,
         deal_score,
       };
@@ -359,13 +349,23 @@ function toApiResponse(state: StateJson, history: HistoryJson, stockChanges: Sto
 }
 
 export default async function handler(
-  _req: NextApiRequest,
+  req: NextApiRequest,
   res: NextApiResponse<ApiResponse | ErrorResponse>
 ) {
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=300");
 
-  if (responseCache && responseCache.expiresAt > Date.now()) {
-    res.status(200).json(responseCache.payload);
+  const tcgParam = typeof req.query.tcg === "string" ? req.query.tcg : "pokemon";
+  let config;
+  try {
+    config = getTcgConfig(tcgParam);
+  } catch {
+    res.status(400).json({ error: `Invalid tcg param: "${tcgParam}"` });
+    return;
+  }
+
+  const cached = responseCache.get(config.slug);
+  if (cached && cached.expiresAt > Date.now()) {
+    res.status(200).json(cached.payload);
     return;
   }
 
@@ -379,18 +379,17 @@ export default async function handler(
     return;
   }
 
+  const prefix = config.githubDataPath;
+
   try {
     const [state, history, stockChanges] = await Promise.all([
-      fetchJson<StateJson>(repo, token, "state.json"),
-      fetchJson<HistoryJson>(repo, token, "price_history.json").catch(() => ({} as HistoryJson)),
-      fetchJson<StockChangesJson>(repo, token, "stock_changes.json").catch(() => ({ events: [] } as StockChangesJson)),
+      fetchJson<StateJson>(repo, token, `${prefix}/state.json`),
+      fetchJson<HistoryJson>(repo, token, `${prefix}/price_history.json`).catch(() => ({} as HistoryJson)),
+      fetchJson<StockChangesJson>(repo, token, `${prefix}/stock_changes.json`).catch(() => ({ events: [] } as StockChangesJson)),
     ]);
 
-    const payload = toApiResponse(state, history, stockChanges);
-    responseCache = {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      payload
-    };
+    const payload = toApiResponse(state, history, stockChanges, config);
+    responseCache.set(config.slug, { expiresAt: Date.now() + CACHE_TTL_MS, payload });
 
     res.status(200).json(payload);
   } catch (error) {

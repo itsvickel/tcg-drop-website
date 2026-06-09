@@ -67,7 +67,7 @@ export default function AlertsPage() {
   return (
     <>
       <Head>
-        <title>Manage Alerts — Pokemon TCG Price Tracker</title>
+        <title>Manage Alerts — TCG Drop</title>
         <meta name="description" content="View and manage your price alerts and newsletter subscriptions" />
       </Head>
 

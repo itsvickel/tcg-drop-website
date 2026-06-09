@@ -1,8 +1,10 @@
 import { useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import useSWR from "swr";
 import type { CalendarResponse, CalendarSet } from "./api/calendar";
+import { TCG_CONFIGS, type TcgSlug } from "../lib/tcg.config";
 import styles from "../styles/Calendar.module.css";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json()) as Promise<CalendarResponse>;
@@ -23,7 +25,7 @@ function daysUntil(iso: string): number {
   return Math.ceil((release.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function SetCard({ set, isCurrent = false }: { set: CalendarSet; isCurrent?: boolean }) {
+function SetCard({ set, isCurrent = false, tcg }: { set: CalendarSet; isCurrent?: boolean; tcg: TcgSlug }) {
   const days = daysUntil(set.release_date);
   const released = days <= 0;
   const soon = days > 0 && days <= 14;
@@ -61,7 +63,7 @@ function SetCard({ set, isCurrent = false }: { set: CalendarSet; isCurrent?: boo
       </div>
 
       <div className={styles.cardLinks}>
-        <a href={`/?set=${encodeURIComponent(set.name)}`} className={styles.priceLink}>
+        <a href={`/${tcg}?set=${encodeURIComponent(set.name)}`} className={styles.priceLink}>
           View prices →
         </a>
         {set.url && (
@@ -77,9 +79,15 @@ function SetCard({ set, isCurrent = false }: { set: CalendarSet; isCurrent?: boo
 const PAST_LIMIT = 12;
 
 export default function CalendarPage() {
+  const router = useRouter();
   const [showAllPast, setShowAllPast] = useState(false);
 
-  const { data, error, isLoading } = useSWR<CalendarResponse>("/api/calendar", fetcher, {
+  const tcg: TcgSlug = (router.query.tcg as TcgSlug) in TCG_CONFIGS
+    ? (router.query.tcg as TcgSlug)
+    : "pokemon";
+  const config = TCG_CONFIGS[tcg];
+
+  const { data, error, isLoading } = useSWR<CalendarResponse>(`/api/calendar?tcg=${tcg}`, fetcher, {
     revalidateOnFocus: false,
   });
 
@@ -108,16 +116,16 @@ export default function CalendarPage() {
   return (
     <>
       <Head>
-        <title>Release Calendar — Pokemon TCG Price Tracker</title>
-        <meta name="description" content="Upcoming and recent Pokemon TCG set release dates" />
+        <title>Release Calendar — {config.displayName} Price Tracker</title>
+        <meta name="description" content={`Upcoming and recent ${config.displayName} set release dates`} />
       </Head>
 
       <div className={styles.page}>
         <header className={styles.header}>
           <div>
-            <Link href="/" className={styles.backLink}>← Back to tracker</Link>
+            <Link href={`/${tcg}`} className={styles.backLink}>← Back to tracker</Link>
             <h1 className={styles.title}>Release Calendar</h1>
-            <p className={styles.subtitle}>Pokemon TCG set releases — upcoming, current, and past</p>
+            <p className={styles.subtitle}>{config.displayName} set releases — upcoming, current, and past</p>
           </div>
         </header>
 
@@ -139,7 +147,7 @@ export default function CalendarPage() {
               <section className={styles.section}>
                 <h2 className={styles.sectionTitle}>Upcoming &amp; Pre-Orders</h2>
                 <div className={styles.grid}>
-                  {upcoming.map((s) => <SetCard key={s.name} set={s} />)}
+                  {upcoming.map((s) => <SetCard key={s.name} set={s} tcg={tcg} />)}
                 </div>
               </section>
             )}
@@ -149,7 +157,7 @@ export default function CalendarPage() {
                 <h2 className={styles.sectionTitle}>Recently Released</h2>
                 <div className={styles.grid}>
                   {recent.map((s) => (
-                    <SetCard key={s.name} set={s} isCurrent={s.name === mostRecentName} />
+                    <SetCard key={s.name} set={s} isCurrent={s.name === mostRecentName} tcg={tcg} />
                   ))}
                 </div>
               </section>
@@ -160,7 +168,7 @@ export default function CalendarPage() {
                 <h2 className={styles.sectionTitle}>Past Releases</h2>
                 <div className={styles.grid}>
                   {visiblePast.map((s) => (
-                    <SetCard key={s.name} set={s} isCurrent={s.name === mostRecentName} />
+                    <SetCard key={s.name} set={s} isCurrent={s.name === mostRecentName} tcg={tcg} />
                   ))}
                 </div>
                 {past.length > PAST_LIMIT && !showAllPast && (

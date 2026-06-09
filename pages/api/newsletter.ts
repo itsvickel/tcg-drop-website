@@ -12,7 +12,7 @@ export type Subscriber = {
 
 type SubsFile = { subscribers: Subscriber[] };
 
-const REPO      = process.env.ALERT_GITHUB_REPO ?? "itsvickel/pokemon-drop-alert";
+const REPO      = process.env.ALERT_GITHUB_REPO ?? "itsvickel/tcg-drop-alert";
 const TOKEN     = process.env.ALERT_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN ?? "";
 const FILE_PATH = "newsletter_subscribers.json";
 const BRANCH    = "main";
