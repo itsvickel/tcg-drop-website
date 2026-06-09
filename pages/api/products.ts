@@ -76,6 +76,7 @@ export type Product = {
   language: string;
   product_type: string;
   set_name: string;
+  variant: string;
   msrp: number | null;
   deal_score: number;
 };
@@ -251,6 +252,16 @@ function extractProductType(name: string, config: TcgConfig): string {
   return "Other";
 }
 
+function extractVariant(name: string): string {
+  const lower = name.toLowerCase();
+  if (/non.?foil/i.test(lower)) return "Non-Foil";
+  if (/etched\s+foil/i.test(lower)) return "Etched Foil";
+  if (/\bfoil\b/i.test(lower)) return "Foil";
+  if (/\bprerelease\b/i.test(lower)) return "Prerelease";
+  if (/\bjapanese\b/i.test(lower)) return "";
+  return "";
+}
+
 function extractSetName(name: string, config: TcgConfig): string {
   const lower = name.toLowerCase();
   for (const set of config.knownSets) {
@@ -342,6 +353,7 @@ function toApiResponse(
         language: extractLanguage(bestPrice.name),
         product_type: extractProductType(bestPrice.name, config),
         set_name: extractSetName(bestPrice.name, config),
+        variant: extractVariant(bestPrice.name),
         msrp,
         deal_score,
       };

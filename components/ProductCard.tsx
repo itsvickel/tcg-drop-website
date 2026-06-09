@@ -38,6 +38,7 @@ export type Product = {
   language: string;
   product_type: string;
   set_name: string;
+  variant: string;
   msrp: number | null;
   deal_score: number;
 };
@@ -51,6 +52,7 @@ type ProductCardProps = {
   isInComparison?: boolean;
   onToggleComparison?: (product: Product) => void;
   compareDisabled?: boolean;
+  tcg?: string;
 };
 
 
@@ -97,6 +99,7 @@ export default function ProductCard({
   isInComparison = false,
   onToggleComparison,
   compareDisabled = false,
+  tcg = "pokemon",
 }: ProductCardProps) {
   const [showDetail, setShowDetail] = useState(false);
 
@@ -186,10 +189,13 @@ export default function ProductCard({
         {/* Name & price */}
         <h3 className={styles.productName}>{product.name}</h3>
 
-        {/* Info chips: language · product type · set */}
+        {/* Info chips: language · variant · product type · set */}
         <div className={styles.infoChips}>
           {product.language !== "English" && (
             <span className={`${styles.infoChip} ${styles.infoChipLang}`}>{product.language}</span>
+          )}
+          {product.variant && (
+            <span className={`${styles.infoChip} ${styles.infoChipVariant}`}>{product.variant}</span>
           )}
           {product.product_type && product.product_type !== "Other" && (
             <span className={`${styles.infoChip} ${styles.infoChipType}`}>{product.product_type}</span>
@@ -249,7 +255,7 @@ export default function ProductCard({
       </article>
 
       {showDetail && (
-        <ProductDetailModal product={product} onClose={() => setShowDetail(false)} />
+        <ProductDetailModal product={product} tcg={tcg} onClose={() => setShowDetail(false)} />
       )}
     </>
   );

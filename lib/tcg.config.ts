@@ -163,7 +163,7 @@ export const TCG_CONFIGS: Record<TcgSlug, TcgConfig> = {
     shortName: "MTG",
     accentColor: "#7b5ea7",
     githubDataPath: "mtg",
-    msrpRetailer: "",
+    msrpRetailer: "Card Kingdom (US)",
     knownSets: MTG_KNOWN_SETS,
     knownSetPatterns: [
       [/commander\s+\d{4}/i,        "Commander"],

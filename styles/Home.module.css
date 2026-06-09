@@ -382,6 +382,57 @@
   color: #d2baff;
 }
 
+.commanderStrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: rgba(123, 94, 167, 0.07);
+  border: 1px solid rgba(123, 94, 167, 0.2);
+  border-radius: 10px;
+}
+
+.commanderLabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #8b949e;
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.commanderChip {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(163, 113, 247, 0.35);
+  background: rgba(163, 113, 247, 0.08);
+  color: #d2baff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.commanderChip:hover {
+  background: rgba(163, 113, 247, 0.18);
+  border-color: rgba(163, 113, 247, 0.6);
+}
+
+.commanderChipActive {
+  background: rgba(163, 113, 247, 0.25);
+  border-color: rgba(163, 113, 247, 0.8);
+  color: #e0d0ff;
+  font-weight: 700;
+}
+
+.commanderCount {
+  font-size: 0.65rem;
+  color: #8b949e;
+}
+
 .resultsHeader {
   margin-top: 18px;
   display: flex;

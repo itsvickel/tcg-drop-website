@@ -72,9 +72,10 @@ type Props = {
   product: Product;
   onClose: () => void;
   autoOpenAlert?: boolean;
+  tcg?: string;
 };
 
-export default function ProductDetailModal({ product, onClose, autoOpenAlert }: Props) {
+export default function ProductDetailModal({ product, onClose, autoOpenAlert, tcg = "pokemon" }: Props) {
   const [showAlert,   setShowAlert]   = useState(false);
   const [showRestock, setShowRestock] = useState(false);
 
@@ -290,7 +291,7 @@ export default function ProductDetailModal({ product, onClose, autoOpenAlert }: 
         <AlertModal product={product} onClose={() => setShowAlert(false)} />
       )}
       {showRestock && (
-        <RestockModal product={product} onClose={() => setShowRestock(false)} />
+        <RestockModal product={product} tcg={tcg} onClose={() => setShowRestock(false)} />
       )}
     </div>
   );

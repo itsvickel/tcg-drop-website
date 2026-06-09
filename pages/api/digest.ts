@@ -113,9 +113,10 @@ export default async function handler(
   }
 
   try {
+    const tcg = typeof req.query.tcg === "string" ? req.query.tcg : "pokemon";
     const host = req.headers.host ?? "localhost:3000";
     const protocol = host.startsWith("localhost") ? "http" : "https";
-    const productsRes = await fetch(`${protocol}://${host}/api/products`, {
+    const productsRes = await fetch(`${protocol}://${host}/api/products?tcg=${tcg}`, {
       headers: { "Cache-Control": "no-cache" },
     });
     if (!productsRes.ok) {

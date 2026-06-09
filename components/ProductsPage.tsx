@@ -212,6 +212,18 @@ export default function ProductsPage({ tcg }: Props) {
     return counts;
   }, [products]);
 
+  // MTG-only: sets that have commander decks, sorted by count desc
+  const commanderSets = useMemo(() => {
+    if (tcg !== "mtg") return [];
+    const counts: Record<string, number> = {};
+    for (const p of products) {
+      if (p.product_type === "Commander Deck" && p.set_name) {
+        counts[p.set_name] = (counts[p.set_name] ?? 0) + 1;
+      }
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+  }, [tcg, products]);
+
   // ── Stats ────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const deals      = products.filter((p) => p.price_change_7d !== null && p.price_change_7d <= -5).length;
@@ -367,6 +379,7 @@ export default function ProductsPage({ tcg }: Props) {
               </Link>
             )}
             <Link href={`/calendar?tcg=${tcg}`} className={styles.calendarNav}>📅 Calendar</Link>
+            <Link href={`/digest?tcg=${tcg}`} className={styles.calendarNav}>🔥 Digest</Link>
             <Link href="/alerts" className={styles.calendarNav}>🔔 My Alerts</Link>
             <div className={styles.liveIndicator}>
               <span className={styles.pulseDot} />
@@ -567,6 +580,35 @@ export default function ProductsPage({ tcg }: Props) {
           </div>
         </section>
 
+        {/* ── MTG Commander Decks quick-filter ────────────────────────────── */}
+        {commanderSets.length > 0 && (
+          <section className={styles.commanderStrip}>
+            <span className={styles.commanderLabel}>Commander Decks:</span>
+            {commanderSets.map(({ name, count }) => {
+              const isActive = productType === "Commander Deck" && setName === name;
+              return (
+                <button
+                  key={name}
+                  className={`${styles.commanderChip} ${isActive ? styles.commanderChipActive : ""}`}
+                  onClick={() => {
+                    if (isActive) {
+                      setProductType("all");
+                      setSetName("all");
+                    } else {
+                      setProductType("Commander Deck");
+                      setSetName(name);
+                    }
+                  }}
+                  type="button"
+                  title={`${name} Commander Decks (${count})`}
+                >
+                  {name} <span className={styles.commanderCount}>{count}</span>
+                </button>
+              );
+            })}
+          </section>
+        )}
+
         {/* ── Results header ───────────────────────────────────────────────── */}
         <section className={styles.resultsHeader}>
           <h2>
@@ -626,6 +668,7 @@ export default function ProductsPage({ tcg }: Props) {
                 <ProductCard
                   key={product.group_key}
                   product={product}
+                  tcg={tcg}
                   onRetailerClick={handleRetailerClick}
                   activeRetailer={retailer}
                   isWishlisted={wishlist.hydrated ? wishlist.has(product.group_key) : false}
@@ -653,6 +696,7 @@ export default function ProductsPage({ tcg }: Props) {
         {autoAlertProduct && (
           <ProductDetailModal
             product={autoAlertProduct}
+            tcg={tcg}
             autoOpenAlert={true}
             onClose={() => setAutoAlertProduct(null)}
           />
@@ -660,6 +704,7 @@ export default function ProductsPage({ tcg }: Props) {
         {hotProduct && (
           <ProductDetailModal
             product={hotProduct}
+            tcg={tcg}
             onClose={() => setHotProduct(null)}
           />
         )}

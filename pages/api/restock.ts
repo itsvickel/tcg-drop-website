@@ -14,14 +14,21 @@ export type RestockAlert = {
 
 type RestockFile = { alerts: RestockAlert[] };
 
-const REPO      = process.env.ALERT_GITHUB_REPO ?? "itsvickel/tcg-drop-alert";
-const TOKEN     = process.env.ALERT_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN ?? "";
-const FILE_PATH = "restock_alerts.json";
-const BRANCH    = "main";
-const API_BASE  = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
+const REPO   = process.env.ALERT_GITHUB_REPO ?? "itsvickel/tcg-drop-alert";
+const TOKEN  = process.env.ALERT_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN ?? "";
+const BRANCH = "main";
 
-async function readAlerts(): Promise<{ data: RestockFile; sha: string }> {
-  const raw = await fetch(API_BASE, {
+function filePath(tcg: string): string {
+  return tcg === "mtg" ? "mtg/restock_alerts.json" : "restock_alerts.json";
+}
+
+function apiBase(tcg: string): string {
+  return `https://api.github.com/repos/${REPO}/contents/${filePath(tcg)}`;
+}
+
+async function readAlerts(tcg: string): Promise<{ data: RestockFile; sha: string }> {
+  const base = apiBase(tcg);
+  const raw = await fetch(base, {
     headers: { Authorization: `Bearer ${TOKEN}`, Accept: "application/vnd.github.raw+json" },
   });
   if (!raw.ok) {
@@ -29,16 +36,16 @@ async function readAlerts(): Promise<{ data: RestockFile; sha: string }> {
     throw new Error(`GitHub read failed: ${raw.status}`);
   }
   const text = await raw.text();
-  const meta = await fetch(API_BASE, {
+  const meta = await fetch(base, {
     headers: { Authorization: `Bearer ${TOKEN}`, Accept: "application/vnd.github.v3+json" },
   });
   const { sha } = await meta.json() as { sha: string };
   return { data: JSON.parse(text) as RestockFile, sha };
 }
 
-async function writeAlerts(data: RestockFile, sha: string): Promise<void> {
+async function writeAlerts(data: RestockFile, sha: string, tcg: string): Promise<void> {
   const content = Buffer.from(JSON.stringify(data, null, 2) + "\n").toString("base64");
-  const res = await fetch(API_BASE, {
+  const res = await fetch(apiBase(tcg), {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${TOKEN}`,
@@ -46,7 +53,7 @@ async function writeAlerts(data: RestockFile, sha: string): Promise<void> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      message: sha ? "chore: update restock alerts" : "chore: create restock_alerts.json",
+      message: sha ? "chore: update restock alerts" : `chore: create ${filePath(tcg)}`,
       content,
       sha: sha || undefined,
       branch: BRANCH,
@@ -70,9 +77,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     if (req.method === "POST") {
-      const { group_key, product_name, email } = req.body as {
-        group_key?: string; product_name?: string; email?: string;
+      const { group_key, product_name, email, tcg } = req.body as {
+        group_key?: string; product_name?: string; email?: string; tcg?: string;
       };
+      const game = tcg === "mtg" ? "mtg" : "pokemon";
       if (!group_key || !product_name || !email) {
         return res.status(400).json({ error: "Missing required fields" });
       }
@@ -80,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Invalid email address" });
       }
 
-      const { data, sha } = await readAlerts();
+      const { data, sha } = await readAlerts(game);
       const existing = data.alerts.find(
         (a) => a.active && a.email === email && a.group_key === group_key
       );
@@ -96,18 +104,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         notified_at: null,
       };
       data.alerts.push(alert);
-      await writeAlerts(data, sha);
+      await writeAlerts(data, sha, game);
       return res.status(201).json({ id: alert.id, message: "Restock alert created" });
     }
 
     if (req.method === "DELETE") {
-      const { id } = req.query;
+      const { id, tcg } = req.query;
+      const game = tcg === "mtg" ? "mtg" : "pokemon";
       if (typeof id !== "string") return res.status(400).json({ error: "Missing id" });
-      const { data, sha } = await readAlerts();
+      const { data, sha } = await readAlerts(game);
       const alert = data.alerts.find((a) => a.id === id);
       if (!alert) return res.status(404).json({ error: "Alert not found" });
       alert.active = false;
-      await writeAlerts(data, sha);
+      await writeAlerts(data, sha, game);
       return res.status(200).json({ message: "Unsubscribed" });
     }
 

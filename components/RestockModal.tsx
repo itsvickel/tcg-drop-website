@@ -5,11 +5,12 @@ import styles from "../styles/RestockModal.module.css";
 type Props = {
   product: Product;
   onClose: () => void;
+  tcg?: string;
 };
 
 type State = "idle" | "loading" | "success" | "error";
 
-export default function RestockModal({ product, onClose }: Props) {
+export default function RestockModal({ product, onClose, tcg = "pokemon" }: Props) {
   const [email,  setEmail]  = useState("");
   const [state,  setState]  = useState<State>("idle");
   const [errMsg, setErrMsg] = useState("");
@@ -38,6 +39,7 @@ export default function RestockModal({ product, onClose }: Props) {
           group_key:    product.group_key,
           product_name: product.name,
           email:        email.trim(),
+          tcg,
         }),
       });
       if (!res.ok) {

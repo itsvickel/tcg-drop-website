@@ -200,6 +200,12 @@
   border: 1px solid rgba(163, 113, 247, 0.25);
 }
 
+.infoChipVariant {
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+}
+
 .productName {
   margin: 0;
   color: #f0f6fc;

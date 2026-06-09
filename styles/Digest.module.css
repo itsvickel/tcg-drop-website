@@ -4,6 +4,35 @@
   padding: 32px 16px 64px;
 }
 
+.tcgSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tcgLink {
+  font-size: 0.85rem;
+  color: #8b949e;
+  text-decoration: none;
+}
+
+.tcgLink:hover {
+  color: #c9d1d9;
+}
+
+.tcgActive {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.tcgDivider {
+  color: #30363d;
+  font-size: 0.85rem;
+}
+
 .heading {
   font-size: 1.5rem;
   font-weight: 800;
