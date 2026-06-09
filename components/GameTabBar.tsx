@@ -34,6 +34,24 @@ export default function GameTabBar({ tcg }: Props) {
               <span className={styles.tabIcon}>⚡</span>
               MTG
             </Link>
+            <span
+              role="tab"
+              aria-selected={false}
+              className={`${styles.tab} ${styles.tabComingSoon}`}
+              title="One Piece — Coming Soon"
+            >
+              <span className={styles.tabIcon}>🏴‍☠️</span>
+              <span className={styles.tabComingSoonLabel}>One Piece</span>
+            </span>
+            <span
+              role="tab"
+              aria-selected={false}
+              className={`${styles.tab} ${styles.tabComingSoon}`}
+              title="Disney Lorcana — Coming Soon"
+            >
+              <span className={styles.tabIcon}>✨</span>
+              <span className={styles.tabComingSoonLabel}>Lorcana</span>
+            </span>
           </div>
         </div>
 
@@ -41,6 +59,7 @@ export default function GameTabBar({ tcg }: Props) {
           <Link href={`/calendar?tcg=${tcg}`} className={styles.navLink}>📅 Calendar</Link>
           <Link href={`/digest?tcg=${tcg}`} className={styles.navLink}>🔥 Digest</Link>
           <Link href="/alerts" className={styles.navLink}>🔔 Alerts</Link>
+          <Link href="/health" className={styles.navLink}>⚙ Health</Link>
           {wishlist.count > 0 && (
             <Link href="/wishlist" className={styles.navLinkWishlist}>
               ♥ My List ({wishlist.count})
@@ -48,7 +67,7 @@ export default function GameTabBar({ tcg }: Props) {
           )}
           <div className={styles.live}>
             <span className={styles.pulseDot} />
-            Live
+            <span className={styles.liveText}>Live</span>
           </div>
         </div>
       </div>

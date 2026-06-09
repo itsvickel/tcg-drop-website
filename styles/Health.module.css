@@ -1,0 +1,217 @@
+.topBar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  height: 50px;
+  background: rgba(13,17,23,0.97);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(48,54,61,0.8);
+}
+
+.homeLink {
+  font-size: 0.85rem;
+  color: #8b949e;
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(48,54,61,0.6);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.homeLink:hover {
+  color: #c9d1d9;
+  border-color: rgba(88,166,255,0.4);
+}
+
+.topBarTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #c9d1d9;
+}
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+}
+
+.pageTitle {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f0f6fc;
+}
+
+.pageSubtitle {
+  margin: 0 0 36px;
+  color: #8b949e;
+  font-size: 0.92rem;
+}
+
+.loadingRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.skeleton {
+  height: 140px;
+  border-radius: 12px;
+  background: linear-gradient(110deg, #1f2630 8%, #2d333b 18%, #1f2630 33%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  to { background-position-x: -200%; }
+}
+
+.errorText {
+  color: #f85149;
+  margin: 16px 0;
+}
+
+.gameSection {
+  margin-bottom: 40px;
+}
+
+.gameHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.gameTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f0f6fc;
+}
+
+.gameSummary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.summaryChip {
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(48,54,61,0.8);
+  background: rgba(22,27,34,0.6);
+  color: #8b949e;
+}
+
+.summaryChip strong {
+  color: #c9d1d9;
+}
+
+.retailerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.retailerCard {
+  border: 1px solid rgba(48,54,61,0.8);
+  background: rgba(22,27,34,0.6);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.retailerCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.retailerName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #c9d1d9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.freshnessIndicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.staleGreen  { background: #3fb950; }
+.staleAmber  { background: #d29922; }
+.staleRed    { background: #f85149; }
+
+.retailerStats {
+  display: flex;
+  gap: 12px;
+}
+
+.statPair {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statNum {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 1.05rem;
+  color: #f0f6fc;
+  font-weight: 600;
+}
+
+.statDesc {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+
+.stockBar {
+  height: 4px;
+  background: rgba(48,54,61,0.8);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.stockBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3fb950, #56d364);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.lastSeen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.noData {
+  color: #8b949e;
+  font-size: 0.9rem;
+  padding: 20px;
+  border: 1px dashed rgba(48,54,61,0.6);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.fetchedAt {
+  margin-top: 32px;
+  font-size: 0.8rem;
+  color: #6e7681;
+}

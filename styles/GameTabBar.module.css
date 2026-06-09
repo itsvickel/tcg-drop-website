@@ -88,6 +88,19 @@
   line-height: 1;
 }
 
+.tabComingSoon {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+.tabComingSoonLabel::after {
+  content: " soon";
+  font-size: 0.65rem;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
 .right {
   display: flex;
   align-items: center;
@@ -163,13 +176,29 @@
 @media (max-width: 768px) {
   .brand { display: none; }
   .navLink { display: none; }
-  .navLinkWishlist { display: none; }
-  .right { gap: 8px; }
-  .live { padding: 4px 8px; }
+  .navLinkWishlist {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+  .right { gap: 6px; }
+  .live {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 540px) {
+  /* Hide "Live" text, keep pulsing dot */
+  .liveText { display: none; }
+}
+
+@media (max-width: 640px) {
+  .tabComingSoon { display: none; }
 }
 
 @media (max-width: 480px) {
-  .inner { padding: 0 12px; gap: 10px; }
+  .inner { padding: 0 12px; gap: 8px; }
   .tabs { gap: 2px; padding: 2px; }
   .tab { padding: 5px 10px; font-size: 0.8rem; }
+  .navLinkWishlist { padding: 4px 7px; }
 }

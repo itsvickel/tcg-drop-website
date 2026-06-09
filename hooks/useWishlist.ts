@@ -5,7 +5,9 @@ const STORAGE_KEY = "ptcg-wishlist-v1";
 export type WishlistReturn = {
   has: (key: string) => boolean;
   toggle: (key: string) => void;
+  add: (key: string) => void;
   count: number;
+  items: string[];
   hydrated: boolean;
 };
 
@@ -35,5 +37,15 @@ export function useWishlist(): WishlistReturn {
 
   const has = useCallback((key: string) => keys.has(key), [keys]);
 
-  return { has, toggle, count: keys.size, hydrated };
+  const add = useCallback((key: string) => {
+    setKeys((prev) => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
+
+  return { has, toggle, add, items: [...keys], count: keys.size, hydrated };
 }

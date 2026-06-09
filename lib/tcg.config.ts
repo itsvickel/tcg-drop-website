@@ -1,4 +1,4 @@
-export type TcgSlug = "pokemon" | "mtg";
+export type TcgSlug = "pokemon" | "mtg" | "onepiece" | "lorcana";
 
 export interface TcgConfig {
   slug: TcgSlug;
@@ -144,6 +144,24 @@ const MTG_KNOWN_SETS: string[] = ([
   "Arena Starter Kit",
 ] as string[]).sort((a, b) => b.length - a.length);
 
+const ONEPIECE_KNOWN_SETS: string[] = ([
+  // English
+  "Romance Dawn", "Paramount War", "Pillars of Strength",
+  "Kingdoms of Intrigue", "Awakening of the New Era",
+  "Wings of the Captain", "500 Years in the Future",
+  "Two Legends", "The Four Emperors",
+  // Starter Decks
+  "Straw Hat Crew Starter Deck", "Worst Generation Starter Deck",
+  "The Seven Warlords of the Sea", "Animal Kingdom Pirates",
+] as string[]).sort((a, b) => b.length - a.length);
+
+const LORCANA_KNOWN_SETS: string[] = ([
+  "The First Chapter", "Rise of the Floodborn",
+  "Into the Inklands", "Ursula's Return",
+  "Shimmering Skies", "Azurite Sea",
+  "Archazia's Island",
+] as string[]).sort((a, b) => b.length - a.length);
+
 export const TCG_CONFIGS: Record<TcgSlug, TcgConfig> = {
   pokemon: {
     slug: "pokemon",
@@ -173,6 +191,24 @@ export const TCG_CONFIGS: Record<TcgSlug, TcgConfig> = {
       [/modern\s+horizons\s+3/i,     "Modern Horizons 3"],
       [/modern\s+horizons\s+2/i,     "Modern Horizons 2"],
     ],
+  },
+  onepiece: {
+    slug: "onepiece",
+    displayName: "One Piece Card Game",
+    shortName: "One Piece",
+    accentColor: "#f97316",
+    githubDataPath: "onepiece",
+    msrpRetailer: "",
+    knownSets: ONEPIECE_KNOWN_SETS,
+  },
+  lorcana: {
+    slug: "lorcana",
+    displayName: "Disney Lorcana",
+    shortName: "Lorcana",
+    accentColor: "#06b6d4",
+    githubDataPath: "lorcana",
+    msrpRetailer: "",
+    knownSets: LORCANA_KNOWN_SETS,
   },
 };
 

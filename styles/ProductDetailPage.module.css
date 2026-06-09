@@ -1,0 +1,444 @@
+.main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+/* ── Breadcrumb ── */
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  font-size: 0.88rem;
+}
+
+.backLink {
+  color: var(--game-text, #58a6ff);
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--game-border, rgba(88,166,255,0.3));
+  background: var(--game-bg, rgba(88,166,255,0.06));
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.backLink:hover {
+  background: var(--game-bg, rgba(88,166,255,0.12));
+  border-color: var(--game-border, rgba(88,166,255,0.5));
+}
+
+.breadcrumbSep {
+  color: var(--muted);
+}
+
+.breadcrumbCurrent {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ── Skeleton ── */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeletonBlock {
+  height: 120px;
+  border-radius: 14px;
+  background: linear-gradient(110deg, #1f2630 8%, #2d333b 18%, #1f2630 33%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  to { background-position-x: -200%; }
+}
+
+/* ── Error ── */
+
+.errorState {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--muted);
+  padding: 40px 0;
+}
+
+/* ── Hero ── */
+
+.hero {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+}
+
+.heroImage {
+  flex-shrink: 0;
+  width: 180px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, rgba(0,0,0,0.3), rgba(22,27,34,0.5));
+  border-radius: 12px;
+  border: 1px solid rgba(48,54,61,0.5);
+  overflow: hidden;
+}
+
+.heroImg {
+  max-width: 100%;
+  max-height: 210px;
+  object-fit: contain;
+}
+
+.heroInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.heroBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.badgeNew    { background: rgba(88,166,255,0.15); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; }
+.badgeBis   { background: rgba(63,185,80,0.12); color: #3fb950; border: 1px solid rgba(63,185,80,0.3); padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; }
+.badgeAtl   { background: rgba(63,185,80,0.12); color: #3fb950; border: 1px solid rgba(63,185,80,0.3); padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; }
+.badgePre   { background: rgba(210,153,34,0.12); color: #d29922; border: 1px solid rgba(210,153,34,0.3); padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; }
+.badgeLang  { background: rgba(139,148,158,0.1); color: #8b949e; border: 1px solid rgba(139,148,158,0.25); padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; }
+.badgeVariant { background: rgba(255,215,0,0.08); color: #ffd700; border: 1px solid rgba(255,215,0,0.25); padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; }
+
+.heroTitle {
+  margin: 0 0 10px;
+  font-size: clamp(1.1rem, 2.5vw, 1.55rem);
+  font-weight: 700;
+  line-height: 1.3;
+  color: #f0f6fc;
+}
+
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.metaChip {
+  font-size: 0.78rem;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(48,54,61,0.6);
+  border: 1px solid rgba(48,54,61,0.9);
+  color: #8b949e;
+}
+
+.heroPriceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.heroPrice {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #f0f6fc;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.heroPerPack {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.heroRetailer {
+  margin: 0 0 16px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.buyBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background: var(--game, #58a6ff);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.buyBtn:hover { opacity: 0.88; }
+
+.alertBtn, .restockBtn, .shareBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(22,27,34,0.8);
+  color: var(--text);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.alertBtn:hover, .restockBtn:hover, .shareBtn:hover {
+  border-color: var(--game-border);
+  background: rgba(22,27,34,1);
+}
+
+/* ── Stats strip ── */
+
+.statsStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 28px;
+  padding: 14px 16px;
+  background: rgba(22,27,34,0.6);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 110px;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.statValue {
+  font-size: 1rem;
+  color: #f0f6fc;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.statGreen { color: var(--green); font-size: 1rem; font-family: "JetBrains Mono", monospace; }
+.statRed   { color: var(--red);   font-size: 1rem; font-family: "JetBrains Mono", monospace; }
+
+/* ── Sections ── */
+
+.section {
+  margin-bottom: 28px;
+}
+
+.sectionTitle {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #c9d1d9;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+/* ── Retailer table ── */
+
+.retailerTable {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.retailerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(22,27,34,0.5);
+  gap: 12px;
+}
+
+.bestRow {
+  border-color: rgba(63,185,80,0.35);
+  background: rgba(63,185,80,0.04);
+}
+
+.retailerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.stockDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.inStock    { background: var(--green); }
+.outOfStock { background: var(--red); }
+
+.retailerName {
+  display: block;
+  font-size: 0.9rem;
+  color: #c9d1d9;
+}
+
+.shippingHint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.retailerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.retailerPrice {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.95rem;
+  color: #f0f6fc;
+  font-weight: 600;
+}
+
+.bestBadge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(63,185,80,0.15);
+  color: #3fb950;
+  border: 1px solid rgba(63,185,80,0.3);
+}
+
+.buyLink {
+  font-size: 0.85rem;
+  color: var(--game-text, #58a6ff);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 7px;
+  background: var(--game-bg, rgba(88,166,255,0.08));
+  border: 1px solid var(--game-border, rgba(88,166,255,0.25));
+  transition: background 0.15s;
+}
+
+.buyLink:hover {
+  background: var(--game-bg, rgba(88,166,255,0.15));
+}
+
+.outOfStockBuy {
+  opacity: 0.6;
+}
+
+/* ── Chart ── */
+
+.chartWrap {
+  background: rgba(13,17,23,0.6);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 8px 4px;
+}
+
+/* ── History table ── */
+
+.historyTable {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.historyHeader {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 8px 14px;
+  background: rgba(22,27,34,0.8);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.historyRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(48,54,61,0.4);
+  transition: background 0.1s;
+}
+
+.historyRow:last-child { border-bottom: none; }
+
+.historyRow:hover { background: rgba(22,27,34,0.5); }
+
+.historyDate     { color: var(--muted); }
+.historyPrice    { font-family: "JetBrains Mono", monospace; color: #f0f6fc; }
+.historyRetailer { color: #8b949e; font-size: 0.82rem; }
+
+/* ── Responsive ── */
+
+@media (max-width: 640px) {
+  .hero {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .heroImage {
+    width: 100%;
+    height: 160px;
+  }
+
+  .heroPrice {
+    font-size: 1.6rem;
+  }
+
+  .statsStrip {
+    gap: 8px;
+  }
+
+  .statItem {
+    flex: 1 1 80px;
+  }
+
+  .historyHeader,
+  .historyRow {
+    grid-template-columns: 100px 80px 1fr;
+  }
+}
+
+@media (max-width: 400px) {
+  .main {
+    padding: 16px 12px 40px;
+  }
+
+  .heroActions {
+    flex-direction: column;
+  }
+
+  .buyBtn, .alertBtn, .restockBtn, .shareBtn {
+    width: 100%;
+    justify-content: center;
+  }
+}

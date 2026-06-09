@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Link from "next/link";
 import Sparkline from "./Sparkline";
 import ProductDetailModal from "./ProductDetailModal";
 import styles from "../styles/Card.module.css";
@@ -128,17 +129,33 @@ export default function ProductCard({
         aria-label={`View details for ${product.name}`}
       >
         {/* Image */}
-        {product.image_url && (
-          <div className={styles.imageWrap}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+        <div className={styles.imageWrap}>
+          {product.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.image_url}
               alt={product.name}
               className={styles.productImage}
               loading="lazy"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+                (e.target as HTMLImageElement).nextElementSibling?.removeAttribute("hidden");
+              }}
             />
+          ) : null}
+          <div
+            className={styles.imagePlaceholder}
+            hidden={!!product.image_url}
+            aria-hidden="true"
+          >
+            <span className={styles.imagePlaceholderIcon}>
+              {tcg === "mtg" ? "⚡" : "🔴"}
+            </span>
+            <span className={styles.imagePlaceholderType}>
+              {product.product_type !== "Other" ? product.product_type : product.set_name || "Sealed Product"}
+            </span>
           </div>
-        )}
+        </div>
 
         {/* Badges row + wishlist heart */}
         <div className={styles.cardTopRow}>
@@ -241,16 +258,24 @@ export default function ProductCard({
             {isStale ? "⚠ " : ""}
             {`Updated ${formatUpdatedDate(product.updated)}`}
           </span>
-          {/* eslint-disable-next-line jsx-a11y/anchor-has-content */}
-          <a
-            className={styles.buyButton}
-            href={cleanUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Buy Now →
-          </a>
+          <div className={styles.footerActions} onClick={(e) => e.stopPropagation()}>
+            <Link
+              href={`/${tcg}/${product.group_key}`}
+              className={styles.permalinkBtn}
+              title="View product page"
+            >
+              ↗
+            </Link>
+            {/* eslint-disable-next-line jsx-a11y/anchor-has-content */}
+            <a
+              className={styles.buyButton}
+              href={cleanUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Buy Now →
+            </a>
+          </div>
         </div>
       </article>
 

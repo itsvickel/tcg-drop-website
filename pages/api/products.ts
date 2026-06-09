@@ -161,6 +161,8 @@ function computeSevenDayChange(entries: HistoryEntry[], currentPrice: number, no
   return Number(change.toFixed(2));
 }
 
+import { fetchGameData } from "../../lib/dataFetcher";
+
 async function fetchJson<T>(repo: string, token: string, fileName: string): Promise<T> {
   const url = `https://api.github.com/repos/${repo}/contents/${fileName}`;
 
@@ -310,9 +312,7 @@ function toApiResponse(
       const allTimeLow = computeAllTimeLow(entries, bestPrice.price);
       const sevenDayChange = computeSevenDayChange(entries, bestPrice.price);
 
-      const isNew = entries.length > 0
-        ? entries[0].date >= sevenDaysAgoStr
-        : parseDate(bestPrice.updated).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const isNew = entries.length > 0 && entries[0].date >= sevenDaysAgoStr;
 
       const allRetailers = byGroup.get(group_key) ?? [];
       const byRetailer = new Map<string, RetailerPrice>();
@@ -404,11 +404,23 @@ export default async function handler(
   const p = config.githubDataPath;
   const apiPath = (file: string) => p ? `${p}/${file}` : file;
 
+  const blobAvailable = !!process.env.BLOB_BASE_URL;
+
+  function loadRequired<T>(fileName: string): Promise<T> {
+    if (blobAvailable) return fetchGameData<T>(p, fileName);
+    return fetchJson<T>(repo!, token!, apiPath(fileName));
+  }
+
+  function loadOptional<T>(fileName: string, fallback: T): Promise<T> {
+    if (blobAvailable) return fetchGameData<T>(p, fileName).catch(() => fallback);
+    return fetchJson<T>(repo!, token!, apiPath(fileName)).catch(() => fallback);
+  }
+
   try {
     const [state, history, stockChanges] = await Promise.all([
-      fetchJson<StateJson>(repo, token, apiPath("state.json")),
-      fetchJson<HistoryJson>(repo, token, apiPath("price_history.json")).catch(() => ({} as HistoryJson)),
-      fetchJson<StockChangesJson>(repo, token, apiPath("stock_changes.json")).catch(() => ({ events: [] } as StockChangesJson)),
+      loadRequired<StateJson>("state.json"),
+      loadOptional<HistoryJson>("price_history.json", {}),
+      loadOptional<StockChangesJson>("stock_changes.json", { events: [] }),
     ]);
 
     const payload = toApiResponse(state, history, stockChanges, config);

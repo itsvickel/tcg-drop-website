@@ -698,4 +698,20 @@
   .controlSet {
     grid-column: auto;
   }
+
+  /* Header: hide subtitle and compact sync chip on tiny screens */
+  .subtitle {
+    display: none;
+  }
+
+  .syncChip {
+    font-size: 0.7rem;
+    padding: 2px 7px;
+  }
+
+  /* Commander strip wraps tighter */
+  .commanderStrip {
+    padding: 8px 10px;
+    gap: 5px;
+  }
 }
