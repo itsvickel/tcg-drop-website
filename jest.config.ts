@@ -8,6 +8,9 @@ const config: Config = {
   moduleNameMapper: {
     "\\.(css|less|scss|sass)$": "<rootDir>/__mocks__/styleMock.js",
   },
+  // Ignore stale git worktrees so their duplicate mocks/tests don't run or warn.
+  testPathIgnorePatterns: ["/node_modules/", "/.worktrees/"],
+  modulePathIgnorePatterns: ["/.worktrees/"],
 };
 
 export default config;
