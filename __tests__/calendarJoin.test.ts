@@ -96,6 +96,12 @@ describe("joinCalendar — live price attachment", () => {
     });
   });
 
+  test("attaches the matched retailer name", () => {
+    const live = makeProduct({ retailer: "401 Games", set_name: "Mega Evolution", product_type: "Elite Trainer Box" });
+    const out = joinCalendar(singleSet(["Elite Trainer Box"]), [live], config);
+    expect(out.sets[0].products[0].retailer).toBe("401 Games");
+  });
+
   test("picks the in-stock, cheapest live product when several match", () => {
     const cheapOut = makeProduct({ group_key: "a", price: 40, in_stock: false });
     const pricierIn = makeProduct({ group_key: "b", price: 55, in_stock: true });

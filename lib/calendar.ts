@@ -54,6 +54,7 @@ export type CalendarProduct = {
   msrp?: number | null;
   in_stock?: boolean;
   url?: string;
+  retailer?: string;
   image_url?: string;
   deal_score?: number;
   group_key?: string;
@@ -134,6 +135,7 @@ function joinProduct(
     out.msrp = match.msrp;
     out.in_stock = match.in_stock;
     out.url = match.url;
+    out.retailer = match.retailer;
     out.image_url = match.image_url;
     out.deal_score = match.deal_score;
     out.group_key = match.group_key;
