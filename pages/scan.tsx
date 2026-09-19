@@ -317,6 +317,10 @@ function CardResult({ match }: { match: CardMatch }) {
                 </a>
                 <strong>{money(l.price)}</strong>
                 {!l.inStock && <em className={styles.oos}>out of stock</em>}
+                {/* Always shown when we have it: a price without its finish,
+                    condition and language is not comparable to the one above
+                    it. */}
+                {l.detail && <em className={styles.copyDetail}>{l.detail}</em>}
               </li>
             ))}
           </ul>

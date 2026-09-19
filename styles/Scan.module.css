@@ -347,3 +347,14 @@
   .cardArt, .cardArtEmpty { width: 72px; height: 100px; }
   .searchBtn, .scanBtn { flex: 1 1 auto; }
 }
+
+/* Which copy a crawled price is for. Never optional when present: finish,
+   condition and language each move a single's price by multiples, and two
+   prices without them are not comparable. */
+.copyDetail {
+  color: #8b949e;
+  font-style: normal;
+  font-size: 0.74rem;
+  flex-basis: 100%;
+  padding-left: 14px;
+}

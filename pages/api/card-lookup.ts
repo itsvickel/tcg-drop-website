@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getTcgConfig } from "../../lib/tcg.config";
 import { loadApiResponseCached } from "../../lib/serverProducts";
-import { fetchGameData } from "../../lib/dataFetcher";
+import { fetchGameBytes, fetchGameData } from "../../lib/dataFetcher";
 import { getClientIp, rateLimit } from "../../lib/rateLimit";
 import { ProviderUnavailable, searchCards } from "../../lib/cardProviders";
 import {
@@ -12,6 +12,13 @@ import {
   type LookupResponse,
 } from "../../lib/cardLookup";
 import type { Product, SinglesEnrichmentJson } from "../../lib/products";
+import {
+  EMPTY_SINGLES,
+  freshness,
+  listingsForCard,
+  parseSinglesState,
+  type SinglesState,
+} from "../../lib/singlesInventory";
 
 /**
  * Identify a card and price it — the engine behind /scan.
@@ -137,6 +144,63 @@ function listingsFor(
     .slice(0, 8);
 }
 
+/**
+ * The crawled singles catalogue for one game, cached.
+ *
+ * Separate from the sealed feed and read separately, because it is built by a
+ * different job on a different cadence — a rotating daily crawl rather than a
+ * twice-daily sweep. Absent for a game with no verified singles collections
+ * yet, which is the normal case rather than an error.
+ */
+const INVENTORY_TTL_MS = 15 * 60 * 1000;
+const inventoryCache = new Map<string, { expiresAt: number; value: SinglesState }>();
+
+async function loadInventory(folder: string, slug: string): Promise<SinglesState> {
+  const hit = inventoryCache.get(slug);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  let value = EMPTY_SINGLES;
+  try {
+    value = parseSinglesState(await fetchGameBytes(folder, "singles_state.json.gz"));
+  } catch {
+    // No crawl for this game yet. The lookup still identifies the card.
+  }
+  inventoryCache.set(slug, { expiresAt: Date.now() + INVENTORY_TTL_MS, value });
+  return value;
+}
+
+/**
+ * Crawled listings, as confirmed matches.
+ *
+ * Confirmed because the crawler resolved the printing itself: it matched the
+ * card's name and collector number out of the store's own title, which is a
+ * stronger claim than the name containment used for the sealed feed. Finish,
+ * condition and language ride along so the page can show which copy each price
+ * is for — a Damaged Japanese non-foil is genuinely cheaper than a Near Mint
+ * English holo and is not a deal on it.
+ */
+function crawledListings(
+  inventory: SinglesState,
+  cardName: string,
+  collectorNumber: string
+): CardListing[] {
+  return listingsForCard(inventory, cardName, collectorNumber).map((l) => {
+    const copy = [l.finish, l.condition];
+    // English is the default and saying so on every row is noise; any other
+    // language is the single most price-relevant thing about the listing.
+    if (l.language && l.language !== "English") copy.push(l.language);
+    return {
+      groupKey: `${l.set}-${l.number}-${l.finish}-${l.condition}-${l.language}`,
+      name: l.name,
+      retailer: l.retailer,
+      price: l.price,
+      url: l.url,
+      inStock: l.in_stock,
+      confirmed: true,
+      detail: `${copy.join(", ")} · ${freshness(l.seen)}`,
+    };
+  });
+}
+
 /** One row per shop and listing, so a card matched twelve times is listed once. */
 function dedupeListings(listings: CardListing[]): CardListing[] {
   const seen = new Map<string, CardListing>();
@@ -199,11 +263,21 @@ export default async function handler(
     // A confirmed listing belongs to its printing; an unconfirmed one belongs
     // to the search, and is collected once across every printing rather than
     // repeated under each.
+    const inventory = await loadInventory(config.githubDataPath, config.slug);
+
     const loose: CardListing[] = [];
     const matches: CardMatch[] = found.map((card) => {
       const all = listingsFor(products, card.id, card.name, card.collectorNumber);
       loose.push(...all.filter((l) => !l.confirmed));
-      return { ...card, listings: all.filter((l) => l.confirmed) };
+      return {
+        ...card,
+        // Crawled singles first: the crawler read the printing out of the
+        // store's own title, which is a stronger claim than name containment.
+        listings: [
+          ...crawledListings(inventory, card.name, card.collectorNumber),
+          ...all.filter((l) => l.confirmed),
+        ].slice(0, 10),
+      };
     });
 
     const data: LookupResponse = {

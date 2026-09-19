@@ -69,6 +69,17 @@ export type CardListing = {
    * to see them — but they are labelled, and they never set the headline.
    */
   confirmed: boolean;
+  /**
+   * Which copy this price is for — "Holo, Near Mint, Japanese · seen 2 days
+   * ago" — when we know.
+   *
+   * Its own field rather than folded into the name, because it always has to be
+   * shown. Finish, condition and language each move a single's price by
+   * multiples, so a bare number beside a card is not a comparable price: a
+   * Damaged Japanese non-foil at $4 is not a deal on a Near Mint English holo
+   * at $40, and a page that printed only the $4 would say it was.
+   */
+  detail?: string;
 };
 
 export type LookupResponse = {

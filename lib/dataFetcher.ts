@@ -75,6 +75,42 @@ export async function fetchGameData<T>(gameFolder: string, fileName: string): Pr
   return data;
 }
 
+/**
+ * Fetch a game data file as raw bytes, for the ones that are not JSON.
+ *
+ * Needed by the gzipped singles inventory: `.json()` on a gzip stream returns
+ * mojibake rather than throwing, so it has to be read as bytes and inflated by
+ * the caller. Blob serves the compressed file as-is; GitHub's contents API is
+ * asked for the raw blob rather than the base64 JSON wrapper.
+ */
+export async function fetchGameBytes(
+  gameFolder: string,
+  fileName: string
+): Promise<Buffer> {
+  const filePath = gameFolder ? `${gameFolder}/${fileName}` : fileName;
+
+  if (BLOB_BASE_URL) {
+    try {
+      const res = await fetch(`${BLOB_BASE_URL}/${filePath}`, {
+        next: { revalidate: 900 },
+      } as RequestInit);
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      console.warn(`[dataFetcher] Blob miss for ${filePath}:`, err);
+    }
+  }
+
+  if (!GITHUB_REPO || !GITHUB_TOKEN) throw new Error("GITHUB_REPO or GITHUB_TOKEN not set");
+  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`, {
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.raw",
+    },
+  });
+  if (!res.ok) throw new Error(`GitHub fetch failed: ${res.status} for ${filePath}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /*
  * ── Vercel Blob upload script ──────────────────────────────────────────────
  *
