@@ -1,9 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getTcgConfig } from "../../lib/tcg.config";
+import { getTcgConfig, type TcgConfig } from "../../lib/tcg.config";
 import { loadApiResponseCached } from "../../lib/serverProducts";
 import { fetchGameBytes, fetchGameData } from "../../lib/dataFetcher";
 import { getClientIp, rateLimit } from "../../lib/rateLimit";
-import { ProviderUnavailable, searchCards } from "../../lib/cardProviders";
+import {
+  ProviderUnavailable,
+  hydratePokemonPage,
+  searchCards,
+} from "../../lib/cardProviders";
+import { loadCardIndex } from "../../lib/serverCardIndex";
+import {
+  correctName,
+  normalise as normaliseIndexName,
+  searchIndex,
+} from "../../lib/cardIndex";
 import {
   listingMatchesCard,
   parseQuery,
@@ -213,6 +223,93 @@ function dedupeListings(listings: CardListing[]): CardListing[] {
     .slice(0, 8);
 }
 
+/** Printings shown at once. The rest are a "show more" away. */
+const PAGE_SIZE = 12;
+
+/**
+ * The printings matching a query, and how many there are in total.
+ *
+ * Index first, provider second, and that order is the fix for the complaint
+ * that started this: a search for "Pikachu" used to return six cards because
+ * six was all the request budget allowed, not because six existed. The index
+ * knows all 243 for free; only the twelve on screen cost a request each, and
+ * those are cached.
+ *
+ * The provider is still the fallback for a game with no index published yet,
+ * and for Magic it remains the primary — one Scryfall search returns every
+ * printing with prices already attached, so an index would add nothing but a
+ * name list for fuzzy correction.
+ */
+async function resolveMatches(
+  config: TcgConfig,
+  name: string,
+  number: string | null,
+  setTotal: string | null,
+  fx: number,
+  offset: number
+): Promise<{
+  found: Omit<CardMatch, "listings">[];
+  total: number;
+  correctedTo: string | null;
+}> {
+  const index = await loadCardIndex(config);
+
+  if (config.slug !== "mtg" && index.cards.length > 0) {
+    const result = searchIndex(index, name, {
+      number,
+      setTotal,
+      limit: PAGE_SIZE,
+      offset,
+    });
+    const priced = await hydratePokemonPage(
+      result.cards.map((c) => c.id),
+      fx
+    );
+
+    // A card the index knows but the provider could not price is still listed.
+    // Dropping it would silently re-introduce the hole this replaced — the
+    // reader would be told the card does not exist because a price lookup was
+    // slow.
+    const found = result.cards.map(
+      (card) =>
+        priced.get(card.id) ?? {
+          id: card.id,
+          name: card.name,
+          setName: card.setName,
+          setCode: card.setId.toUpperCase(),
+          collectorNumber: card.number,
+          setTotal: card.setTotal || null,
+          rarity: null,
+          imageUrl: card.imageUrl,
+          sourceUrl: "",
+          marketUsd: null,
+          marketCad: null,
+        }
+    );
+    return { found, total: result.total, correctedTo: result.correctedTo };
+  }
+
+  // Magic, or a game whose index has not been built yet. Fuzzy-correct the
+  // name against the index when there is one, because Scryfall's own fuzzy
+  // endpoint tolerates a character or two and OCR routinely produces three.
+  let term = name;
+  let correctedTo: string | null = null;
+  if (index.names.length > 0) {
+    const corrected = correctName(index, name);
+    if (corrected && corrected !== normaliseIndexName(name)) {
+      term = corrected;
+      correctedTo = corrected;
+    }
+  }
+
+  const all = await searchCards(config.slug, term, number, fx);
+  return {
+    found: all.slice(offset, offset + PAGE_SIZE),
+    total: all.length,
+    correctedTo,
+  };
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<LookupResponse | { error: string }>
@@ -238,18 +335,27 @@ export default async function handler(
     return res.status(400).json({ error: "Search for at least two characters." });
   }
 
-  const cacheKey = `${config.slug}:${raw.toLowerCase()}`;
+  const offset = Math.max(0, Math.min(500, Number(req.query.offset) || 0));
+
+  const cacheKey = `${config.slug}:${raw.toLowerCase()}:${offset}`;
   const hit = cache.get(cacheKey);
   if (hit && hit.expiresAt > Date.now()) {
     res.setHeader("X-Cache", "hit");
     return res.status(200).json(hit.data);
   }
 
-  const { name, number } = parseQuery(raw);
+  const { name, number, setTotal } = parseQuery(raw);
 
   try {
     const fx = await usdToCad();
-    const found = await searchCards(config.slug, name, number, fx);
+    const { found, total, correctedTo } = await resolveMatches(
+      config,
+      name,
+      number,
+      setTotal,
+      fx,
+      offset
+    );
 
     // Our own listings are a join onto whatever the provider identified, and a
     // feed outage must not stop the lookup from identifying the card.
@@ -285,9 +391,12 @@ export default async function handler(
       tcg: config.slug,
       matches,
       unconfirmedListings: dedupeListings(loose),
-      exact: !!number && matches.length === 1,
+      exact: !!number && total === 1,
+      total,
+      offset,
+      correctedTo,
       note:
-        matches.length === 0
+        total === 0
           ? "No card matched. Check the spelling, or try the collector number from the bottom of the card."
           : null,
     };

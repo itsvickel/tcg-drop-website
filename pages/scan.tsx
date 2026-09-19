@@ -47,6 +47,7 @@ export default function ScanPage() {
   const [result, setResult] = useState<LookupResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -56,28 +57,37 @@ export default function ScanPage() {
   }, [tcg]);
 
   const runLookup = useCallback(
-    async (text: string, game: TcgSlug) => {
+    async (text: string, game: TcgSlug, offset = 0) => {
       const trimmed = text.trim();
       if (trimmed.length < 2) return;
-      setLoading(true);
+      if (offset > 0) setLoadingMore(true);
+      else setLoading(true);
       setError(null);
       setSubmitted(trimmed);
       try {
         const res = await fetch(
-          `/api/card-lookup?tcg=${game}&q=${encodeURIComponent(trimmed)}`
+          `/api/card-lookup?tcg=${game}&q=${encodeURIComponent(trimmed)}&offset=${offset}`
         );
         const payload = await res.json();
         if (!res.ok) {
-          setResult(null);
+          if (offset === 0) setResult(null);
           setError(payload?.error ?? "Lookup failed.");
         } else {
-          setResult(payload as LookupResponse);
+          const next = payload as LookupResponse;
+          // A later page appends. Replacing would throw away the printings
+          // somebody has already scrolled past to get here.
+          setResult((prev) =>
+            offset > 0 && prev
+              ? { ...next, matches: [...prev.matches, ...next.matches] }
+              : next
+          );
         }
       } catch {
-        setResult(null);
+        if (offset === 0) setResult(null);
         setError("Could not reach the lookup service.");
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     },
     []
@@ -85,12 +95,12 @@ export default function ScanPage() {
 
   const handleScan = useCallback(
     (text: string) => {
+      // The camera stays open. The scanner reads continuously, so closing it on
+      // the first hit would end the session at the exact moment somebody wants
+      // to check the next card — and if the reading was wrong, it would also
+      // have taken away the only way to try again.
       setQuery(text);
-      setCameraOpen(false);
-      // The reading goes in the box as well as straight to a lookup, so a
-      // misread is two keystrokes from fixed rather than a dead end.
       void runLookup(text, tcg);
-      inputRef.current?.focus();
     },
     [runLookup, tcg]
   );
@@ -103,6 +113,9 @@ export default function ScanPage() {
   // expects — and a blank page is a far worse outcome than a missing section.
   const matches = result?.matches ?? [];
   const unconfirmed = result?.unconfirmedListings ?? [];
+  // `total` is how many printings exist, `matches.length` how many are loaded.
+  const total = result?.total ?? matches.length;
+  const hasMore = matches.length < total;
 
   return (
     <>
@@ -194,12 +207,18 @@ export default function ScanPage() {
         {result && !loading && (
           <section className={styles.results} aria-live="polite">
             <h2 className={styles.resultsHeading}>
-              {matches.length === 0
+              {total === 0
                 ? `Nothing matched “${result.query}”`
                 : result.exact
                   ? "One printing matched"
-                  : `${matches.length} printing${matches.length === 1 ? "" : "s"} of “${result.query}”`}
+                  : `${total} printing${total === 1 ? "" : "s"} of “${result.query}”`}
             </h2>
+            {result.correctedTo && (
+              <p className={styles.corrected}>
+                No card is called “{result.query}”, so we searched for{" "}
+                <strong>{result.correctedTo}</strong>.
+              </p>
+            )}
             {result.note && <p className={styles.state}>{result.note}</p>}
 
             <ul className={styles.cardList}>
@@ -207,6 +226,19 @@ export default function ScanPage() {
                 <CardResult key={match.id} match={match} />
               ))}
             </ul>
+
+            {hasMore && (
+              <button
+                type="button"
+                className={styles.moreBtn}
+                disabled={loadingMore}
+                onClick={() => void runLookup(submitted, tcg, matches.length)}
+              >
+                {loadingMore
+                  ? "Loading…"
+                  : `Show more (${total - matches.length} left)`}
+              </button>
+            )}
 
             {unconfirmed.length > 0 && (
               <section className={styles.maybe}>

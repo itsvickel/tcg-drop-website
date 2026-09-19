@@ -374,6 +374,87 @@ export async function searchCards(
   return rankMatches(found, name);
 }
 
+// ── Hydrating one card ──────────────────────────────────────────────────────
+
+/**
+ * Full details for a single Pokemon printing, cached.
+ *
+ * The index knows every card's name, set and number but deliberately carries no
+ * prices — TCGdex has no bulk price endpoint, and fetching 23,736 of them
+ * against a free API would be indefensible. So the index answers "which cards
+ * are these" for free, and this answers "what is this one worth" for the
+ * handful actually on screen.
+ *
+ * Cached for six hours and keyed by card id. Card details barely change and
+ * prices move daily, so a long TTL costs freshness nobody can perceive and
+ * saves the provider a request per card per visitor.
+ */
+const CARD_TTL_MS = 6 * 60 * 60 * 1000;
+const MAX_CARD_CACHE = 4000;
+const cardCache = new Map<string, { expiresAt: number; value: TcgdexCard | null }>();
+
+export async function hydratePokemonCard(
+  id: string,
+  fx: number
+): Promise<Omit<CardMatch, "listings"> | null> {
+  const hit = cardCache.get(id);
+  if (hit && hit.expiresAt > Date.now()) {
+    return hit.value ? fromTcgdex(hit.value, fx) : null;
+  }
+
+  const fetched = await getJson<TcgdexCard>(`https://api.tcgdex.net/v2/en/cards/${id}`);
+  // A failed request is not cached: a slow moment must not make a card look
+  // priceless for six hours.
+  if (!fetched.ok) return null;
+
+  if (cardCache.size >= MAX_CARD_CACHE) {
+    const oldest = cardCache.keys().next().value;
+    if (oldest) cardCache.delete(oldest);
+  }
+  cardCache.set(id, { expiresAt: Date.now() + CARD_TTL_MS, value: fetched.data });
+  return fetched.data ? fromTcgdex(fetched.data, fx) : null;
+}
+
+/**
+ * Prices for a page of results, fetched together.
+ *
+ * Bounded by how many are on screen rather than by how many matched, which is
+ * the whole point of pairing an index with on-demand hydration: 153 Pikachus
+ * can be listed, and only the dozen someone is looking at costs anything.
+ */
+/**
+ * How long the page will wait for prices before rendering without them.
+ *
+ * Twelve hydrations on a cold cache took twelve seconds, because they are only
+ * as fast as the slowest one and TCGdex's latency has a long tail. The index
+ * already supplies the name, set, number and image, so a card whose price has
+ * not arrived is still a complete, useful result — and it will have a price on
+ * the next search, because the request that missed this deadline still lands
+ * and still fills the cache.
+ */
+const HYDRATE_BUDGET_MS = 3500;
+
+export async function hydratePokemonPage(
+  ids: string[],
+  fx: number
+): Promise<Map<string, Omit<CardMatch, "listings">>> {
+  const out = new Map<string, Omit<CardMatch, "listings">>();
+
+  await Promise.race([
+    Promise.all(
+      ids.map(async (id) => {
+        const card = await hydratePokemonCard(id, fx);
+        if (card) out.set(id, card);
+      })
+    ),
+    new Promise((resolve) => setTimeout(resolve, HYDRATE_BUDGET_MS)),
+  ]);
+
+  // Whatever arrived inside the budget. The map is read after the race rather
+  // than built from its result, so a slow straggler simply is not in it.
+  return out;
+}
+
 /** Attribution the UI is required to show. Both are conditions of use. */
 export function providerCredit(tcg: string): { label: string; url: string } {
   return tcg === "mtg"

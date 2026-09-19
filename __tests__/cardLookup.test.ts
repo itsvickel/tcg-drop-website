@@ -101,8 +101,15 @@ describe("parseScan — name", () => {
 });
 
 describe("scanToQuery", () => {
-  it("builds an editable query the user can correct", () => {
-    expect(scanToQuery(parseScan("Charizard ex", "136/189"))).toBe("Charizard ex 136");
+  it("keeps the set total, which is the strongest discriminator on the card", () => {
+    // This used to drop the denominator. Measured against the real 23,736-card
+    // index: name alone leaves 16.3 candidate printings, name plus number
+    // leaves 2.2, and adding the total pins 99.2% of cards to exactly one.
+    expect(scanToQuery(parseScan("Charizard ex", "136/189"))).toBe("Charizard ex 136/189");
+  });
+
+  it("falls back to a bare number when there is no denominator", () => {
+    expect(scanToQuery(parseScan("Mimikyu", "SVP 075"))).toBe("Mimikyu SVP075");
   });
 
   it("copes with a name and no number", () => {

@@ -161,8 +161,8 @@
   border-top: 1px solid rgba(88, 166, 255, 0.9);
   border-bottom: 1px solid rgba(88, 166, 255, 0.9);
 }
-.bandTop { top: 3%; height: 14%; }
-.bandBottom { top: 87%; height: 13%; }
+.bandTop { top: 2%; height: 22%; }
+.bandBottom { top: 80%; height: 20%; }
 
 .hint {
   color: #8b949e;
@@ -357,4 +357,58 @@
   font-size: 0.74rem;
   flex-basis: 100%;
   padding-left: 14px;
+}
+
+/* The query we actually searched for, when OCR or a typo meant it was not the
+   one that was typed. Always visible: silently substituting a different card is
+   the one thing a lookup must not do quietly. */
+.corrected {
+  color: #d29922;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin: 0 0 12px;
+  max-width: 68ch;
+}
+.corrected strong { color: #c9d1d9; }
+
+.moreBtn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 12px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #c9d1d9;
+}
+.moreBtn:hover { filter: brightness(1.2); }
+.moreBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* A sweep down the frame while the loop is running, so a scanner that takes a
+   second or two to agree with itself still looks alive. Without it a slow read
+   is indistinguishable from a frozen page. */
+.scanPulse {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--game, #58a6ff), transparent);
+  animation: scanSweep 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes scanSweep {
+  0%   { transform: translateY(0); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(var(--sweep-height, 340px)); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanPulse { animation: none; opacity: 0.6; }
 }

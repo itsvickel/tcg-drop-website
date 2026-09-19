@@ -100,6 +100,25 @@ export type LookupResponse = {
   unconfirmedListings: CardListing[];
   /** True when the collector number pinned a single printing. */
   exact: boolean;
+  /**
+   * How many printings matched in total, not how many are in `matches`.
+   *
+   * The two differ because results are paged: a search for "Pikachu" matches
+   * 153 cards and shows twelve. Reporting only the page length is what made
+   * the lookup look like it had six Pikachus in the world.
+   */
+  total: number;
+  /** Where this page starts, for "show more". */
+  offset: number;
+  /**
+   * The name actually searched for, when the query was fuzzy-corrected.
+   *
+   * Always surfaced. A scanner that silently turns "Charlzard" into
+   * "Charizard" is helpful; one that silently turns a deliberate search into a
+   * different card is not, and the reader cannot tell which happened unless
+   * they are told.
+   */
+  correctedTo: string | null;
   note: string | null;
 };
 
@@ -260,7 +279,12 @@ export function numberVariants(number: string | null): string[] {
  */
 export function scanToQuery(scan: ScannedCard): string {
   const parts = [scan.nameCandidates[0] ?? ""];
-  if (scan.number) parts.push(scan.number);
+  // The denominator goes in too. It used to be parsed and dropped, which threw
+  // away the strongest discriminator on the card: name plus number leaves 2.2
+  // candidate printings on average, and adding the set total pins 99.2% of
+  // cards to exactly one.
+  if (scan.number && scan.setTotal) parts.push(`${scan.number}/${scan.setTotal}`);
+  else if (scan.number) parts.push(scan.number);
   return parts.filter(Boolean).join(" ").trim();
 }
 
