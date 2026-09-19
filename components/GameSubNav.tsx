@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { TcgSlug } from "../lib/tcg.config";
 import styles from "../styles/GameSubNav.module.css";
 
-export type GameSection = "sealed" | "singles" | "deals" | "movers" | "sets";
+export type GameSection = "sealed" | "singles" | "deals" | "movers" | "sets" | "scan";
 
 type Props = {
   tcg: TcgSlug;
@@ -58,6 +58,16 @@ export default function GameSubNav({ tcg, active, sealedCount, singlesCount }: P
           aria-current={active === "sets" ? "page" : undefined}
         >
           🗂️ Sets
+        </Link>
+        {/* Placed next to Singles: it is the singles tool, and someone who has
+            just found the singles tab empty for their game is exactly who needs
+            it. */}
+        <Link
+          href={`/scan?tcg=${tcg}`}
+          className={`${styles.item} ${active === "scan" ? styles.itemActive : ""}`}
+          aria-current={active === "scan" ? "page" : undefined}
+        >
+          🔍 Card lookup
         </Link>
         <Link href={`/drops?tcg=${tcg}`} className={styles.item}>
           📡 Drops

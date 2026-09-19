@@ -27,6 +27,10 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   entries.push(url(`${SITE}/drops`, "daily", "0.8"));
   entries.push(url(`${SITE}/retailers`, "weekly", "0.7"));
   entries.push(url(`${SITE}/calendar`, "weekly", "0.7"));
+  // One entry, not one per game: the page picks its game from a query param
+  // and the content is otherwise identical, so listing both would be two URLs
+  // for one page.
+  entries.push(url(`${SITE}/scan`, "weekly", "0.7"));
 
   // Product pages — the long tail. The feeds are kept so the retailer pages
   // can be listed from the same load rather than fetching them twice.
