@@ -637,6 +637,22 @@
   font-style: italic;
 }
 
+/* What this product's own restock history suggests, on a sold-out card.
+   Deliberately quiet: it is an observation about the past, not a countdown, and
+   styling it like a promise would be the part people remember when it is
+   wrong. The title attribute carries the sample size. */
+.restockOutlook {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.outlook_due,
+.outlook_overdue { color: var(--amber); }
+.outlook_soon,
+.outlook_quiet { color: var(--muted); }
+
 .msrpStrike {
   margin-left: 8px;
   font-size: 0.78rem;

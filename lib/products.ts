@@ -11,6 +11,7 @@ import { implausibleFloor } from "./priceOutliers";
 import { LOW_BADGE_MIN_DAYS } from "./siteFacts";
 import { changeOver, pricePerPack } from "./insights";
 import { computePackCount } from "./packCount";
+import type { ProductRhythm } from "./stockStats";
 
 // ── Raw scraper shapes ────────────────────────────────────────────────────────
 
@@ -157,6 +158,13 @@ export type Product = {
   msrp: number | null;
   deal_score: number;
   last_restock_date: string | null;
+  /**
+   * How often this product has come back in stock, when it has done so often
+   * enough to have a rhythm. Present on a few hundred products out of several
+   * thousand — most have restocked once or never, and two sightings is not a
+   * cadence. See lib/stockStats.
+   */
+  restock_rhythm?: ProductRhythm;
 };
 
 export type ApiResponse = {
@@ -465,7 +473,8 @@ export function toApiResponse(
   history: HistoryJson,
   stockChanges: StockChangesJson,
   config: TcgConfig,
-  enrichment?: SinglesEnrichmentJson | null
+  enrichment?: SinglesEnrichmentJson | null,
+  rhythms?: Record<string, ProductRhythm> | null
 ): ApiResponse {
   const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const twoDaysAgoMs    = Date.now() - 48 * 60 * 60 * 1000;
@@ -610,6 +619,7 @@ export function toApiResponse(
         msrp,
         deal_score,
         last_restock_date: lastRestockMap.get(group_key) ?? null,
+        restock_rhythm: rhythms?.[group_key],
       };
 
       return product;

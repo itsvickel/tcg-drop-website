@@ -14,6 +14,7 @@ import {
   type StockChangesJson,
   type SinglesEnrichmentJson,
 } from "./products";
+import { EMPTY_STOCK_STATS, type StockStats } from "./stockStats";
 
 async function fetchFromGitHubRaw<T>(repo: string, token: string, filePath: string): Promise<T> {
   const url = `https://api.github.com/repos/${repo}/contents/${filePath}`;
@@ -57,14 +58,55 @@ export async function loadApiResponse(config: TcgConfig): Promise<ApiResponse> {
     return loadRequired<T>(fileName).catch(() => fallback);
   }
 
-  const [state, history, stockChanges, enrichment] = await Promise.all([
+  const [state, history, stockChanges, enrichment, stats] = await Promise.all([
     loadRequired<StateJson>("state.json"),
     loadOptional<HistoryJson>("price_history.json", {}),
     loadOptional<StockChangesJson>("stock_changes.json", { events: [] }),
     loadOptional<SinglesEnrichmentJson | null>("singles_enrichment.json", null),
+    loadOptional<StockStats>("stock_stats.json", EMPTY_STOCK_STATS),
   ]);
 
-  return toApiResponse(state, history, stockChanges, config, enrichment);
+  return toApiResponse(state, history, stockChanges, config, enrichment, stats.products);
+}
+
+/**
+ * Restock-rhythm and sellout-speed stats for one game.
+ *
+ * Separate from loadApiResponse rather than folded into it: only the retailer
+ * pages and the out-of-stock hint need this, and the product feed is already
+ * the heaviest thing the site loads. An absent or unreadable file yields empty
+ * stats, never an error — every consumer of it renders nothing rather than
+ * breaking, because a restock heatmap is a nice-to-have on a page whose job is
+ * to show prices.
+ */
+export async function loadStockStats(config: TcgConfig): Promise<StockStats> {
+  const repo = process.env.GITHUB_REPO;
+  const token = process.env.GITHUB_TOKEN;
+  const blobAvailable = !!process.env.BLOB_BASE_URL;
+  const p = config.githubDataPath;
+
+  try {
+    if (blobAvailable) return await fetchGameData<StockStats>(p, "stock_stats.json");
+    if (!repo || !token) return EMPTY_STOCK_STATS;
+    return await fetchFromGitHubRaw<StockStats>(
+      repo,
+      token,
+      p ? `${p}/stock_stats.json` : "stock_stats.json"
+    );
+  } catch {
+    return EMPTY_STOCK_STATS;
+  }
+}
+
+const STATS_TTL_MS = 5 * 60 * 1000;
+const statsCache = new Map<string, { expiresAt: number; value: Promise<StockStats> }>();
+
+export function loadStockStatsCached(config: TcgConfig): Promise<StockStats> {
+  const hit = statsCache.get(config.slug);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  const value = loadStockStats(config);
+  statsCache.set(config.slug, { expiresAt: Date.now() + STATS_TTL_MS, value });
+  return value;
 }
 
 /**

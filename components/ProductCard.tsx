@@ -10,6 +10,7 @@ import { SHIPPING_THRESHOLDS } from "../lib/shipping";
 import { computePackCount } from "../lib/packCount";
 import { sizedImage, thumbSrcSet, THUMB } from "../lib/images";
 import PriceVerdict from "./PriceVerdict";
+import { restockOutlook } from "../lib/stockStats";
 
 
 /**
@@ -113,6 +114,7 @@ export default function ProductCard({
   const inStockCount    = allRetailerStocks.filter(Boolean).length;
   const totalRetailers  = allRetailerStocks.length;
   const soldOutEverywhere = inStockCount === 0;
+  const outlook = restockOutlook(product.restock_rhythm);
 
   return (
     <>
@@ -297,6 +299,19 @@ export default function ProductCard({
                 </span>
               )}
             </div>
+            {/* What this product's own restock history suggests. Only shown
+                while it is actually unavailable — on an in-stock product the
+                cadence is trivia, and on an out-of-stock one it is the single
+                thing the reader wants to know. Absent for most products, which
+                have not restocked often enough to have a rhythm. */}
+            {soldOutEverywhere && outlook && (
+              <span
+                className={`${styles.restockOutlook} ${styles[`outlook_${outlook.state}`]}`}
+                title={outlook.detail}
+              >
+                {outlook.text}
+              </span>
+            )}
             <div className={styles.storeStockList}>
               {[
                 { retailer: product.retailer, in_stock: product.in_stock },

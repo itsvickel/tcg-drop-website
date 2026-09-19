@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import SetProgressPanel from "../components/SetProgress";
+import CollectionValueChart from "../components/CollectionValueChart";
 import { setProgress } from "../lib/setCompletion";
 import GameTabBar from "../components/GameTabBar";
 import Footer from "../components/Footer";
@@ -54,6 +55,11 @@ export default function CollectionPage() {
     [valued, mtg.data?.sets, products]
   );
   const note = coverageNote(totals);
+
+  // Fixed for the life of the mount so the chart's last point cannot shift
+  // under a re-render, and so a tab left open overnight does not silently
+  // extend its own window.
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -157,6 +163,10 @@ export default function CollectionPage() {
                 </span>
               </div>
             </section>
+
+            {valued.length > 0 && (
+              <CollectionValueChart holdings={valued} today={today} />
+            )}
 
             {collection.holdings.length > 0 && (
               <div className={styles.actions}>

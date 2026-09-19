@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import useSWR from "swr";
 import ConfidenceBadge from "../components/ConfidenceBadge";
+import SelloutBadge from "../components/SelloutBadge";
 import {
   EVENT_LABELS,
   bestListing,
@@ -134,7 +135,14 @@ function DropCard({ drop, now, accuracyNote }: { drop: Drop; now: Date; accuracy
             {drop.series && <span className={styles.series}>{drop.series}</span>}
             {drop.kind === "secret_lair" && <span className={styles.slTag}>Secret Lair</span>}
           </div>
-          <ConfidenceBadge confidence={drop.confidence} accuracyNote={accuracyNote} compact />
+          <div className={styles.cardBadges}>
+            {/* Two separate chips on purpose. "Will it happen when they said?"
+                and "will it still be there when I get to it?" are different
+                questions that routinely point opposite ways, and a combined
+                score would hide the one the reader came for. */}
+            {drop.sellout && <SelloutBadge sellout={drop.sellout} compact />}
+            <ConfidenceBadge confidence={drop.confidence} accuracyNote={accuracyNote} compact />
+          </div>
         </div>
 
         <h3 className={styles.name}>

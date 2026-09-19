@@ -1,0 +1,66 @@
+/* Collection value over time. Sits under the three total cards and shares
+   their card idiom so it reads as part of the same summary block. */
+
+.wrap {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #c9d1d9;
+  margin: 0;
+}
+
+.delta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.delta strong { font-size: 1.05rem; }
+
+.up { color: #3fb950; }
+.down { color: #f85149; }
+
+.window {
+  color: #6e7681;
+  font-size: 0.78rem;
+}
+
+.chart {
+  width: 100%;
+  /* Recharts' ResponsiveContainer measures its parent, and a flex/grid parent
+     that has not settled reports zero. A fixed height here keeps the first
+     paint from collapsing. */
+  height: 200px;
+}
+
+.note {
+  color: #6e7681;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin: 10px 0 0;
+  max-width: 72ch;
+}
+
+.muted {
+  color: #8b949e;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 68ch;
+}

@@ -155,6 +155,16 @@
   margin-bottom: 6px;
 }
 
+/* Sellout chip then confidence chip. Wraps rather than shrinks on a narrow
+   card: a squashed pair of chips is harder to read than a stacked one. */
+.cardBadges {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .cardMeta {
   display: flex;
   flex-wrap: wrap;

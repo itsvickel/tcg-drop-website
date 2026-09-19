@@ -2,7 +2,9 @@ import Head from "next/head";
 import Link from "next/link";
 import type { GetStaticPaths, GetStaticProps } from "next";
 import Footer from "../../components/Footer";
-import { loadApiResponseCached } from "../../lib/serverProducts";
+import RestockPattern from "../../components/RestockPattern";
+import { loadApiResponseCached, loadStockStatsCached } from "../../lib/serverProducts";
+import { mergePatterns, type RetailerPattern } from "../../lib/stockStats";
 import { TCG_CONFIGS } from "../../lib/tcg.config";
 import { bestSellersFor, summariseRetailers, type RetailerSummary } from "../../lib/retailers";
 import { shippingLabel } from "../../lib/shipping";
@@ -28,6 +30,12 @@ type Props = {
   /** Cheapest in-stock listings, each tagged with the game it links to. */
   samples: (Product & { game: string })[];
   generatedAt: string;
+  /**
+   * Both games' restock history for this shop, summed. A shop that sells
+   * Pokemon and Magic has one restock habit, not two, and showing one game's
+   * slice would describe a fraction of its activity as though it were the whole.
+   */
+  restock: RetailerPattern | null;
 };
 
 export const getStaticPaths: GetStaticPaths = async () => {
@@ -39,9 +47,11 @@ export const getStaticPaths: GetStaticPaths = async () => {
 export const getStaticProps: GetStaticProps<Props> = async (ctx) => {
   const slug = String(ctx.params?.slug ?? "");
   try {
-    const [mtg, pokemon] = await Promise.all([
+    const [mtg, pokemon, mtgStats, pokemonStats] = await Promise.all([
       loadApiResponseCached(TCG_CONFIGS.mtg),
       loadApiResponseCached(TCG_CONFIGS.pokemon),
+      loadStockStatsCached(TCG_CONFIGS.mtg),
+      loadStockStatsCached(TCG_CONFIGS.pokemon),
     ]);
     const feeds = [
       { game: "mtg", products: mtg.products },
@@ -57,6 +67,10 @@ export const getStaticProps: GetStaticProps<Props> = async (ctx) => {
         samples: bestSellersFor(feeds, retailer.name, SAMPLE_SIZE)
           .map(({ product, game }) => ({ ...leanForSsr(product), game })),
         generatedAt: mtg.generated_at || "",
+        restock: mergePatterns([
+          mtgStats.retailers[retailer.name],
+          pokemonStats.retailers[retailer.name],
+        ]),
       },
       revalidate: 3600,
     };
@@ -69,7 +83,7 @@ export const getStaticProps: GetStaticProps<Props> = async (ctx) => {
 
 const money = (n: number) => `$${n.toFixed(2)}`;
 
-export default function RetailerPage({ retailer, samples, generatedAt }: Props) {
+export default function RetailerPage({ retailer, samples, generatedAt, restock }: Props) {
   const games = retailer.games
     .map((g) => TCG_CONFIGS[g as keyof typeof TCG_CONFIGS]?.displayName ?? g)
     .join(" and ");
@@ -182,6 +196,8 @@ export default function RetailerPage({ retailer, samples, generatedAt }: Props) 
         </section>
 
         {retailer.policy?.note && <p className={styles.note}>{retailer.policy.note}</p>}
+
+        <RestockPattern retailer={retailer.name} pattern={restock} />
 
         {samples.length > 0 && (
           <section className={styles.samples}>

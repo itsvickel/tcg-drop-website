@@ -57,6 +57,26 @@ export type Confidence = {
   signals: ConfidenceSignal[];
 };
 
+/**
+ * How fast this *kind* of product sells out, attached by drops_core.attach_sellout.
+ *
+ * A sibling of `confidence`, never a part of it. `confidence.score` means one
+ * thing — the probability the drop lands on its stated date — and the
+ * calibration log on /drops measures it against exactly that. Folding demand
+ * into it would silently change what every historical bucket was measuring.
+ *
+ * Optional because most drops do not get one: a drop has to name a unit of
+ * product we have enough closed restocks for.
+ */
+export type Sellout = {
+  /** "box" | "bundle" | "pack" | … — the unit this figure describes. */
+  size_class: string;
+  median_days: number;
+  p25_days: number;
+  gone_within_a_day_pct: number;
+  runs: number;
+};
+
 export type DropChange = {
   at: string;
   field: string;
@@ -85,6 +105,7 @@ export type Drop = {
   go_live?: GoLive;
   where: Listing[];
   confidence: Confidence;
+  sellout?: Sellout;
   sources: string[];
   news?: NewsLink[];
   first_seen?: string;
@@ -201,6 +222,22 @@ export function confidenceBand(score: number): ConfidenceBand {
   if (score >= 70) return "likely";
   if (score >= 45) return "soft";
   return "rumour";
+}
+
+export type SelloutBand = "instant" | "fast" | "steady" | "relaxed";
+
+/**
+ * Urgency bands for shelf life, in days.
+ *
+ * The boundaries are set by what a buyer would actually do differently, not by
+ * even spacing. Under two days means being there when it goes live is the only
+ * way to get one; a week or more means the decision can wait for payday.
+ */
+export function selloutBand(medianDays: number): SelloutBand {
+  if (medianDays <= 1) return "instant";
+  if (medianDays <= 3) return "fast";
+  if (medianDays <= 7) return "steady";
+  return "relaxed";
 }
 
 export function bestListing(drop: Drop): Listing | undefined {

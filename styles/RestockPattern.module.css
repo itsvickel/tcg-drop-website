@@ -1,0 +1,92 @@
+/* Restock weekday strip. Shown on retailer profiles, and sized so it reads as
+   one fact among the others rather than as a dashboard. */
+
+.wrap {
+  margin-top: 24px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #c9d1d9;
+  margin: 0 0 8px;
+}
+
+.verdict {
+  color: #c9d1d9;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin: 0 0 14px;
+  max-width: 68ch;
+}
+
+.verdictMuted {
+  composes: verdict;
+  color: #8b949e;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 420px;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.day {
+  font-size: 0.68rem;
+  color: #6e7681;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.bar {
+  display: block;
+  width: 100%;
+  height: 30px;
+  border-radius: 5px;
+  background: #58a6ff;
+}
+
+/* The two days the pattern names, when it names any. Outlined rather than
+   recoloured so the strip stays one hue. */
+.cellTop .bar {
+  box-shadow: inset 0 0 0 2px #c9d1d9;
+}
+.cellTop .day {
+  color: #c9d1d9;
+}
+
+.count {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.footnote {
+  color: #6e7681;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin: 12px 0 0;
+  max-width: 68ch;
+}
+
+@media (max-width: 420px) {
+  .grid { gap: 4px; }
+  .day { font-size: 0.6rem; }
+  .bar { height: 24px; }
+}

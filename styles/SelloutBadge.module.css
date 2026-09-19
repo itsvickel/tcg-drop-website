@@ -1,0 +1,145 @@
+/* Shelf-life chip on a drop card. Mirrors ConfidenceBadge's shape so the two
+   read as one row of chips, but uses a warm ramp rather than the confidence
+   green-to-orange: these two badges sit side by side and answer different
+   questions, and sharing a palette would invite reading one as the other. */
+
+.wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  padding: 4px 9px;
+  cursor: help;
+  font: inherit;
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  line-height: 1.15;
+}
+.badge:hover { filter: brightness(1.12); }
+.badge:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 2px;
+}
+
+.icon { font-size: 0.72rem; opacity: 0.9; }
+
+.value {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.compact .value { font-size: 0.72rem; }
+.compact .badge { padding: 3px 7px; }
+
+/* Bands mirror selloutBand() in lib/drops.ts */
+.instant {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.4);
+}
+.fast {
+  color: #f0883e;
+  background: rgba(240, 136, 62, 0.12);
+  border-color: rgba(240, 136, 62, 0.4);
+}
+.steady {
+  color: #d29922;
+  background: rgba(210, 153, 34, 0.12);
+  border-color: rgba(210, 153, 34, 0.4);
+}
+.relaxed {
+  color: #8b949e;
+  background: #21262d;
+  border-color: #30363d;
+}
+
+/* ── Tooltip ── */
+
+.tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: 272px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  cursor: default;
+  text-align: left;
+}
+
+.tooltipTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #c9d1d9;
+  margin: 0 0 3px;
+}
+
+.tooltipLede {
+  font-size: 0.72rem;
+  color: #8b949e;
+  margin: 0 0 9px;
+  line-height: 1.45;
+}
+.tooltipLede strong { color: #c9d1d9; }
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.rowLabel {
+  color: #6e7681;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.rowValue {
+  color: #c9d1d9;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.caveat {
+  margin: 10px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid #21262d;
+  font-size: 0.7rem;
+  color: #8b949e;
+  line-height: 1.45;
+}
+
+@media (max-width: 560px) {
+  .tooltip {
+    width: min(272px, calc(100vw - 48px));
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
