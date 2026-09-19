@@ -230,3 +230,57 @@ describe("set total as a discriminator", () => {
     expect(searchIndex(TOTALS, "Pikachu", { setTotal: "999" }).total).toBe(2);
   });
 });
+
+describe("filters and ordering", () => {
+  const MIXED = parseCardIndex(
+    gzipSync(
+      Buffer.from(
+        JSON.stringify({
+          game: "pokemon",
+          sets: {
+            old: { name: "Old Set", total: 102 },
+            neu: { name: "New Set", total: 189 },
+          },
+          // Index order is newest-set-first, as the builder writes it.
+          cards: [
+            ["neu-10", "Pikachu", "10", "neu", ""],
+            ["neu-2", "Pikachu", "2", "neu", ""],
+            ["old-Museum", "Pikachu", "Museum", "old", ""],
+            ["old-1", "Pikachu", "1", "old", ""],
+          ],
+        })
+      )
+    )
+  );
+
+  it("offers every set with a count", () => {
+    const r = searchIndex(MIXED, "Pikachu");
+    expect(r.sets).toEqual([
+      { id: "neu", name: "New Set", count: 2 },
+      { id: "old", name: "Old Set", count: 2 },
+    ]);
+  });
+
+  it("narrows to one set without collapsing the menu", () => {
+    // A filter that removes its own options traps the user in it.
+    const r = searchIndex(MIXED, "Pikachu", { setId: "old" });
+    expect(r.total).toBe(2);
+    expect(r.sets).toHaveLength(2);
+  });
+
+  it("sorts numerically, with non-numeric collector numbers last", () => {
+    // "Museum" is not a number. Comparing it numerically against real ones
+    // gave an inconsistent comparator that sorted it ahead of card 1.
+    const r = searchIndex(MIXED, "Pikachu", { sort: "number" });
+    expect(r.cards.map((c) => c.number)).toEqual(["1", "2", "10", "Museum"]);
+  });
+
+  it("reverses for oldest-first", () => {
+    const r = searchIndex(MIXED, "Pikachu", { sort: "oldest" });
+    expect(r.cards[0].setName).toBe("Old Set");
+  });
+
+  it("defaults to the index order, which is newest first", () => {
+    expect(searchIndex(MIXED, "Pikachu").cards[0].setName).toBe("New Set");
+  });
+});

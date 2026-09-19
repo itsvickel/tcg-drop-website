@@ -119,6 +119,10 @@ export type LookupResponse = {
    * they are told.
    */
   correctedTo: string | null;
+  /**
+   * Sets the match list spans, for the filter menu. Newest first, with counts.
+   */
+  sets: { id: string; name: string; count: number }[];
   note: string | null;
 };
 

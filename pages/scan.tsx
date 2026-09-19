@@ -49,6 +49,9 @@ export default function ScanPage() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [setId, setSetId] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [stockedOnly, setStockedOnly] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -57,7 +60,12 @@ export default function ScanPage() {
   }, [tcg]);
 
   const runLookup = useCallback(
-    async (text: string, game: TcgSlug, offset = 0) => {
+    async (
+      text: string,
+      game: TcgSlug,
+      offset = 0,
+      filters: { setId?: string; sort?: string; stocked?: boolean } = {}
+    ) => {
       const trimmed = text.trim();
       if (trimmed.length < 2) return;
       if (offset > 0) setLoadingMore(true);
@@ -65,9 +73,18 @@ export default function ScanPage() {
       setError(null);
       setSubmitted(trimmed);
       try {
-        const res = await fetch(
-          `/api/card-lookup?tcg=${game}&q=${encodeURIComponent(trimmed)}&offset=${offset}`
-        );
+        // Filters go to the server so they apply across every printing, not
+        // just the twelve already on screen. Filtering the loaded page would
+        // quietly mean "of the twelve you happen to have".
+        const params = new URLSearchParams({
+          tcg: game,
+          q: trimmed,
+          offset: String(offset),
+          sort: filters.sort ?? "newest",
+        });
+        if (filters.setId) params.set("set", filters.setId);
+        if (filters.stocked) params.set("stocked", "1");
+        const res = await fetch(`/api/card-lookup?${params}`);
         const payload = await res.json();
         if (!res.ok) {
           if (offset === 0) setResult(null);
@@ -93,6 +110,21 @@ export default function ScanPage() {
     []
   );
 
+  /** Re-run the current search with the current filters. */
+  const applyFilters = useCallback(
+    (next: { setId?: string; sort?: string; stocked?: boolean }) => {
+      const merged = {
+        setId: next.setId ?? setId,
+        sort: next.sort ?? sort,
+        stocked: next.stocked ?? stockedOnly,
+      };
+      // Back to page one. Keeping the offset would show page three of a filter
+      // that may only have one page.
+      if (submitted) void runLookup(submitted, tcg, 0, merged);
+    },
+    [runLookup, setId, sort, stockedOnly, submitted, tcg]
+  );
+
   const handleScan = useCallback(
     (text: string) => {
       // The camera stays open. The scanner reads continuously, so closing it on
@@ -100,9 +132,9 @@ export default function ScanPage() {
       // to check the next card — and if the reading was wrong, it would also
       // have taken away the only way to try again.
       setQuery(text);
-      void runLookup(text, tcg);
+      void runLookup(text, tcg, 0, { setId, sort, stocked: stockedOnly });
     },
-    [runLookup, tcg]
+    [runLookup, setId, sort, stockedOnly, tcg]
   );
 
   const credit = providerCredit(tcg);
@@ -116,6 +148,7 @@ export default function ScanPage() {
   // `total` is how many printings exist, `matches.length` how many are loaded.
   const total = result?.total ?? matches.length;
   const hasMore = matches.length < total;
+  const sets = result?.sets ?? [];
 
   return (
     <>
@@ -151,7 +184,15 @@ export default function ScanPage() {
                 void router.replace({ query: { ...router.query, tcg: slug } }, undefined, {
                   shallow: true,
                 });
-                if (submitted) void runLookup(submitted, slug);
+                if (submitted)
+                  void runLookup(submitted, slug, 0, {
+                    // A set id belongs to one game's catalogue, so it cannot
+                    // survive a switch to the other.
+                    setId: "",
+                    sort,
+                    stocked: stockedOnly,
+                  });
+                setSetId("");
               }}
             >
               {TCG_CONFIGS[slug].displayName}
@@ -163,7 +204,7 @@ export default function ScanPage() {
           className={styles.searchRow}
           onSubmit={(e) => {
             e.preventDefault();
-            void runLookup(query, tcg);
+            void runLookup(query, tcg, 0, { setId, sort, stocked: stockedOnly });
           }}
         >
           <input
@@ -221,6 +262,83 @@ export default function ScanPage() {
             )}
             {result.note && <p className={styles.state}>{result.note}</p>}
 
+            {/* Only worth showing once there is something to narrow. A filter
+                bar above three results is furniture. */}
+            {total > 3 && (
+              <div className={styles.filters} role="group" aria-label="Filter results">
+                {sets.length > 1 && (
+                  <label className={styles.filterField}>
+                    <span className={styles.filterLabel}>Set</span>
+                    <select
+                      className={styles.filterSelect}
+                      value={setId}
+                      onChange={(e) => {
+                        setSetId(e.target.value);
+                        applyFilters({ setId: e.target.value });
+                      }}
+                    >
+                      <option value="">All sets ({total})</option>
+                      {sets.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.count})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                <label className={styles.filterField}>
+                  <span className={styles.filterLabel}>Order</span>
+                  <select
+                    className={styles.filterSelect}
+                    value={sort}
+                    onChange={(e) => {
+                      setSort(e.target.value);
+                      applyFilters({ sort: e.target.value });
+                    }}
+                  >
+                    <option value="newest">Newest sets first</option>
+                    <option value="oldest">Oldest sets first</option>
+                    <option value="number">Collector number</option>
+                  </select>
+                </label>
+
+                <label className={styles.filterCheck}>
+                  <input
+                    type="checkbox"
+                    checked={stockedOnly}
+                    onChange={(e) => {
+                      setStockedOnly(e.target.checked);
+                      applyFilters({ stocked: e.target.checked });
+                    }}
+                  />
+                  In stock in Canada
+                </label>
+
+                {(setId || stockedOnly || sort !== "newest") && (
+                  <button
+                    type="button"
+                    className={styles.filterClear}
+                    onClick={() => {
+                      setSetId("");
+                      setSort("newest");
+                      setStockedOnly(false);
+                      applyFilters({ setId: "", sort: "newest", stocked: false });
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+
+            {stockedOnly && (
+              <p className={styles.filterNote}>
+                Stock is checked against the printings loaded so far, so “show
+                more” can turn up others.
+              </p>
+            )}
+
             <ul className={styles.cardList}>
               {matches.map((match) => (
                 <CardResult key={match.id} match={match} />
@@ -232,7 +350,13 @@ export default function ScanPage() {
                 type="button"
                 className={styles.moreBtn}
                 disabled={loadingMore}
-                onClick={() => void runLookup(submitted, tcg, matches.length)}
+                onClick={() =>
+                  void runLookup(submitted, tcg, matches.length, {
+                    setId,
+                    sort,
+                    stocked: stockedOnly,
+                  })
+                }
               >
                 {loadingMore
                   ? "Loading…"

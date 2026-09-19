@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseScan, scanToQuery } from "../lib/cardLookup";
+import { gradeFrame, stretchRange, type FrameGrade } from "../lib/frameQuality";
 import styles from "../styles/Scan.module.css";
 
 /**
@@ -34,12 +35,18 @@ import styles from "../styles/Scan.module.css";
  * discarded; only text leaves the device.
  */
 
-/** Fractions of the guide frame read for each field. */
-const NAME_BAND = { top: 0.02, height: 0.22 };
-const CODE_BAND = { top: 0.8, height: 0.2 };
-
-/** Target pixel height for a cropped band. Tesseract wants big glyphs. */
-const TARGET_BAND_HEIGHT = 120;
+/**
+ * Fractions of the guide frame read for each field, and how tall to upscale
+ * each one before reading.
+ *
+ * The targets differ because the text does. A card name is roughly 3.4% of the
+ * card's height and the collector line 1.6%, so at 1080p they arrive about 29
+ * and 14 pixels tall against the ~20 Tesseract wants. A single shared target of
+ * 120 px, which is what this had, scaled neither: both source bands were
+ * already taller than that, so `max(1, 120/height)` was always 1.
+ */
+const NAME_BAND = { top: 0.02, height: 0.22, target: 200 };
+const CODE_BAND = { top: 0.8, height: 0.2, target: 380 };
 
 /** Readings that must agree before a result is accepted. */
 const CONSENSUS = 2;
@@ -50,19 +57,6 @@ const LOOP_PAUSE_MS = 250;
 /** Quiet zone around a crop. Tesseract reads a glyph flush to the edge wrong. */
 const BORDER_PX = 12;
 
-/**
- * Quality gates, and the numbers come from a shipped browser document scanner
- * (docuSnap) rather than from taste.
- *
- * They exist to tell the user *why* it is not working. The old scanner failed
- * silently — you pressed a button, nothing happened, and nothing on screen
- * said whether the problem was the light, your hand, or the card. Saying "too
- * much glare, tilt the card" is worth more than any amount of extra OCR
- * tuning, because it is the only advice that actually fixes a foil.
- */
-const BLUR_MIN_VARIANCE = 90;
-const GLARE_MAX_RATIO = 0.06;
-const GLARE_LUMA = 250;
 
 type Props = {
   /** Called when two passes agree. May fire repeatedly as the card changes. */
@@ -136,23 +130,32 @@ export default function CardScanner({ onRead, onClose }: Props) {
   }, []);
 
   const cropBand = useCallback(
-    (video: HTMLVideoElement, band: { top: number; height: number }, invert: boolean) => {
+    (
+      video: HTMLVideoElement,
+      band: { top: number; height: number; target: number },
+      invert: boolean
+    ): { canvas: HTMLCanvasElement; grade: FrameGrade | null } => {
       const frame = guideInVideoSpace(video);
       const canvas = document.createElement("canvas");
-      if (!frame) return canvas;
+      if (!frame) return { canvas, grade: null };
 
       const sx = frame.x;
       const sy = frame.y + frame.h * band.top;
       const sw = frame.w;
       const sh = frame.h * band.height;
 
-      const scale = Math.max(1, TARGET_BAND_HEIGHT / sh);
+      // Per band, because the two are not the same problem. A card name is
+      // ~3.4% of the card's height and the collector line ~1.6%, so at 1080p
+      // the name arrives around 29 px tall and the number around 14 — below the
+      // ~20 px Tesseract wants. One shared target left both unscaled, because
+      // the source band was already taller than it.
+      const scale = Math.max(1, band.target / sh);
       // Tesseract's own guidance asks for a small quiet zone around the text;
       // a glyph flush against the edge of the image reads as a different glyph.
       canvas.width = Math.round(sw * scale) + BORDER_PX * 2;
       canvas.height = Math.round(sh * scale) + BORDER_PX * 2;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return canvas;
+      if (!ctx) return { canvas, grade: null };
 
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -165,81 +168,40 @@ export default function CardScanner({ onRead, onClose }: Props) {
         canvas.width - BORDER_PX * 2, canvas.height - BORDER_PX * 2
       );
 
-      // Grayscale with the contrast stretched across the band's own range, and
-      // no thresholding. Tesseract binarises internally with Otsu, which adapts
-      // to the histogram; a fixed cutoff cannot, and the previous one erased the
-      // text on any card with a dark title bar.
-      const image = ctx.getImageData(
-        BORDER_PX, BORDER_PX,
-        canvas.width - BORDER_PX * 2, canvas.height - BORDER_PX * 2
-      );
+      const innerW = canvas.width - BORDER_PX * 2;
+      const innerH = canvas.height - BORDER_PX * 2;
+      const image = ctx.getImageData(BORDER_PX, BORDER_PX, innerW, innerH);
       const px = image.data;
 
-      let min = 255;
-      let max = 0;
-      for (let i = 0; i < px.length; i += 4) {
-        const grey = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-        px[i] = grey;
-        if (grey < min) min = grey;
-        if (grey > max) max = grey;
+      // Grayscale into its own buffer first, so the frame can be graded on what
+      // the camera actually saw. Grading after the stretch measures the stretch:
+      // it maps the brightest pixel to 255 by definition, so every frame would
+      // look blown out. Grading the padded canvas was worse still — the white
+      // border alone was 13.5% of the pixels against a 6% limit, which tripped
+      // the glare gate on every frame and stopped OCR ever running.
+      const gray = new Uint8ClampedArray(innerW * innerH);
+      for (let i = 0, g = 0; i < px.length; i += 4, g += 1) {
+        gray[g] = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
       }
-      const span = Math.max(1, max - min);
-      for (let i = 0; i < px.length; i += 4) {
-        let v = ((px[i] - min) / span) * 255;
+      const grade = gradeFrame(gray, innerW, innerH);
+
+      // No thresholding. Tesseract works from the greyscale image and binarises
+      // internally with Otsu, which adapts to the histogram; the fixed cutoff
+      // this replaced erased the text on any card with a dark title bar.
+      const { low, high } = stretchRange(gray, gray.length);
+      const span = Math.max(1, high - low);
+      for (let i = 0, g = 0; i < px.length; i += 4, g += 1) {
+        let v = ((gray[g] - low) / span) * 255;
+        v = v < 0 ? 0 : v > 255 ? 255 : v;
         if (invert) v = 255 - v;
         px[i] = px[i + 1] = px[i + 2] = v;
         px[i + 3] = 255;
       }
       ctx.putImageData(image, BORDER_PX, BORDER_PX);
-      return canvas;
+      return { canvas, grade };
     },
     [guideInVideoSpace]
   );
-
-  /**
-   * Whether this frame is worth reading, and what to tell the user if not.
-   *
-   * Cheap: one pass over a band that is already in memory. Variance of the
-   * Laplacian is the standard sharpness measure, and the share of pixels pinned
-   * at white is the standard glare measure — a foil under a ceiling light blows
-   * out a patch that no amount of OCR tuning will recover, and the only fix is
-   * for the person holding it to tilt it.
-   */
-  const gradeFrame = useCallback((canvas: HTMLCanvasElement): string | null => {
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx || !canvas.width || !canvas.height) return null;
-    const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    let blown = 0;
-    let sum = 0;
-    let sumSq = 0;
-    let n = 0;
-
-    for (let y = 1; y < height - 1; y += 1) {
-      for (let x = 1; x < width - 1; x += 1) {
-        const i = (y * width + x) * 4;
-        if (data[i] >= GLARE_LUMA) blown += 1;
-        // 4-neighbour Laplacian on the already-grayscale buffer.
-        const lap =
-          4 * data[i] -
-          data[i - 4] -
-          data[i + 4] -
-          data[i - width * 4] -
-          data[i + width * 4];
-        sum += lap;
-        sumSq += lap * lap;
-        n += 1;
-      }
-    }
-    if (n === 0) return null;
-
-    const variance = sumSq / n - (sum / n) ** 2;
-    const glare = blown / n;
-
-    if (glare > GLARE_MAX_RATIO) return "Too much glare — tilt the card away from the light.";
-    if (variance < BLUR_MIN_VARIANCE) return "Hold steadier, or move a little closer.";
-    return null;
-  }, []);
 
   /** One OCR pass over both bands. Returns a query string, or "". */
   const readOnce = useCallback(async (): Promise<string> => {
@@ -247,30 +209,21 @@ export default function CardScanner({ onRead, onClose }: Props) {
     const worker = workerRef.current;
     if (!video || !worker || !video.videoWidth) return "";
 
-    const nameCanvas = cropBand(video, NAME_BAND, false);
+    const name = cropBand(video, NAME_BAND, false);
 
-    // Graded before it is read, so a hopeless frame costs a millisecond instead
-    // of a second and a half of OCR — and so the user is told what to change.
-    const complaint = gradeFrame(nameCanvas);
-    setQuality(complaint);
-    if (complaint) return "";
-
-    // Page segmentation mode 7 is "a single line of text", which is what both a
-    // card name and a collector line are. The default (3) runs full page layout
-    // analysis including column detection on a 600x120 strip, and routinely
-    // splits a stylised title into fragments or discards it as noise.
+    // Advice, not a gate. The frame is read whatever the grade says.
     //
-    // No character whitelist: `tessedit_char_whitelist` is documented as
-    // unsupported under the LSTM engine this uses, so it would be a comment
-    // pretending to be a constraint. The digit repair in parseScan does that job
-    // afterwards, where it actually works.
-    await worker.setParameters({
-      tessedit_pageseg_mode: "7",
-      user_defined_dpi: "300",
-    });
+    // The version this replaces returned early on a complaint, and a grading
+    // bug meant the complaint fired on every frame — so OCR never ran and the
+    // scanner was dead while appearing to work. A threshold that is wrong
+    // should cost a misleading sentence, not the feature. Tesseract is also
+    // better at a marginal frame than any threshold of mine is at predicting
+    // which frames are marginal.
+    setQuality(name.grade?.advice ?? null);
 
-    const nameText = (await worker.recognize(nameCanvas)).data.text;
-    const codeText = (await worker.recognize(cropBand(video, CODE_BAND, false))).data.text;
+    const code = cropBand(video, CODE_BAND, false);
+    const nameText = (await worker.recognize(name.canvas)).data.text;
+    const codeText = (await worker.recognize(code.canvas)).data.text;
 
     let scan = parseScan(nameText, codeText);
 
@@ -278,12 +231,12 @@ export default function CardScanner({ onRead, onClose }: Props) {
     // for themselves. Plenty of modern cards print the name light-on-dark, so a
     // failed name gets one inverted retry rather than costing the whole pass.
     if (scan.nameCandidates.length === 0) {
-      const inverted = (await worker.recognize(cropBand(video, NAME_BAND, true))).data.text;
-      scan = parseScan(inverted, codeText);
+      const inverted = cropBand(video, NAME_BAND, true);
+      scan = parseScan((await worker.recognize(inverted.canvas)).data.text, codeText);
     }
 
     return scanToQuery(scan);
-  }, [cropBand, gradeFrame]);
+  }, [cropBand]);
 
   /** The scan loop. Runs until the component unmounts or the camera closes. */
   const loop = useCallback(async () => {
@@ -347,6 +300,21 @@ export default function CardScanner({ onRead, onClose }: Props) {
         setMessage("Loading the text reader (one-time, a few megabytes)…");
         const { createWorker } = await import("tesseract.js");
         const worker = (await createWorker("eng")) as unknown as Worker;
+
+        // Set once, not per pass. Page segmentation mode 7 is "a single line of
+        // text", which is what both a card name and a collector line are; the
+        // default runs full page-layout analysis, including column detection,
+        // on a strip 200 pixels tall. Declaring the DPI stops Tesseract
+        // guessing it from the image size.
+        //
+        // No character whitelist. It is a soft filter over the beam search
+        // rather than a constraint, and it is documented to suppress correct
+        // readings outright under this engine. The digit repair in parseScan
+        // does that job afterwards, where it cannot lose a good character.
+        await worker.setParameters({
+          tessedit_pageseg_mode: "7",
+          user_defined_dpi: "300",
+        });
         if (cancelled) {
           void worker.terminate();
           return;

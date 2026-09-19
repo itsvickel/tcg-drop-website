@@ -412,3 +412,77 @@
 @media (prefers-reduced-motion: reduce) {
   .scanPulse { animation: none; opacity: 0.6; }
 }
+
+/* ── Result filters ── */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.filterLabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6e7681;
+  font-weight: 600;
+}
+
+.filterSelect {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #c9d1d9;
+  max-width: 260px;
+}
+.filterSelect:focus { outline: none; border-color: #58a6ff; }
+
+.filterCheck {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #c9d1d9;
+  cursor: pointer;
+  padding-bottom: 7px;
+}
+
+.filterClear {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #21262d;
+  color: #8b949e;
+  cursor: pointer;
+  margin-bottom: 0;
+}
+.filterClear:hover { color: #c9d1d9; }
+
+/* Says out loud that this one filter is page-scoped. A filter that silently
+   means something narrower than it says is worse than no filter. */
+.filterNote {
+  color: #6e7681;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  margin: -6px 0 12px;
+  max-width: 68ch;
+}

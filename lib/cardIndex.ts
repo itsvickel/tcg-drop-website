@@ -198,7 +198,18 @@ export type SearchResult = {
   /** Set when the query was corrected, so the UI can say what it searched for. */
   correctedTo: string | null;
   total: number;
+  /**
+   * Every set the *unfiltered* match list spans, newest first, with a count.
+   *
+   * Computed before the set filter is applied, so choosing a set never empties
+   * the menu you chose it from. A filter that removes its own options is a trap
+   * — you pick "Base Set", the dropdown then contains only Base Set, and there
+   * is no way back to the others except clearing the search.
+   */
+  sets: { id: string; name: string; count: number }[];
 };
+
+export type SortOrder = "newest" | "oldest" | "number";
 
 function bare(value: string): string {
   return (value || "").replace(/^[A-Za-z]+/, "").replace(/^0+/, "") || "";
@@ -245,6 +256,9 @@ export function searchIndex(
      * fuzzy matcher can go astray in.
      */
     setTotal?: string | null;
+    /** Restrict to one set, by its index id. */
+    setId?: string | null;
+    sort?: SortOrder;
     limit?: number;
     offset?: number;
   } = {}
@@ -253,7 +267,7 @@ export function searchIndex(
   const offset = opts.offset ?? 0;
   const wanted = normalise(query);
   if (!wanted || index.cards.length === 0) {
-    return { cards: [], correctedTo: null, total: 0 };
+    return { cards: [], correctedTo: null, total: 0, sets: [] };
   }
 
   let correctedTo: string | null = null;
@@ -288,9 +302,44 @@ export function searchIndex(
     if (pinned.length > 0) matches = pinned;
   }
 
+  // Collected before the set filter runs — see the note on SearchResult.sets.
+  const counts = new Map<string, { id: string; name: string; count: number }>();
+  for (const card of matches) {
+    const seen = counts.get(card.setId);
+    if (seen) seen.count += 1;
+    else counts.set(card.setId, { id: card.setId, name: card.setName, count: 1 });
+  }
+  const sets = [...counts.values()];
+
+  if (opts.setId) {
+    matches = matches.filter((c) => c.setId === opts.setId);
+  }
+
+  // The index arrives newest-set-first, so "newest" is the order it is already
+  // in and costs nothing. The others are a copy.
+  if (opts.sort === "oldest") matches = [...matches].reverse();
+  else if (opts.sort === "number") {
+    // Numbered cards ascending, then everything else alphabetically. Plenty of
+    // collector "numbers" are not numbers — "Museum", "HGSS03", "SVP075" — and
+    // comparing those numerically against real ones gives an inconsistent
+    // comparator, which sorts differently depending on the input order and put
+    // "Museum" ahead of card 1. Two well-defined groups avoid that.
+    const rank = (value: string) => {
+      const n = Number(bare(value));
+      return Number.isFinite(n) && bare(value) !== "" ? n : Number.POSITIVE_INFINITY;
+    };
+    matches = [...matches].sort((a, b) => {
+      const ra = rank(a.number);
+      const rb = rank(b.number);
+      if (ra !== rb) return ra - rb;
+      return a.number.localeCompare(b.number, "en");
+    });
+  }
+
   return {
     cards: matches.slice(offset, offset + limit),
     correctedTo,
     total: matches.length,
+    sets,
   };
 }

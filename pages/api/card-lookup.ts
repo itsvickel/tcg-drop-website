@@ -13,6 +13,7 @@ import {
   correctName,
   normalise as normaliseIndexName,
   searchIndex,
+  type SortOrder,
 } from "../../lib/cardIndex";
 import {
   listingMatchesCard,
@@ -246,11 +247,13 @@ async function resolveMatches(
   number: string | null,
   setTotal: string | null,
   fx: number,
-  offset: number
+  offset: number,
+  filters: { setId: string | null; sort: SortOrder }
 ): Promise<{
   found: Omit<CardMatch, "listings">[];
   total: number;
   correctedTo: string | null;
+  sets: { id: string; name: string; count: number }[];
 }> {
   const index = await loadCardIndex(config);
 
@@ -258,6 +261,8 @@ async function resolveMatches(
     const result = searchIndex(index, name, {
       number,
       setTotal,
+      setId: filters.setId,
+      sort: filters.sort,
       limit: PAGE_SIZE,
       offset,
     });
@@ -286,7 +291,12 @@ async function resolveMatches(
           marketCad: null,
         }
     );
-    return { found, total: result.total, correctedTo: result.correctedTo };
+    return {
+      found,
+      total: result.total,
+      correctedTo: result.correctedTo,
+      sets: result.sets,
+    };
   }
 
   // Magic, or a game whose index has not been built yet. Fuzzy-correct the
@@ -303,10 +313,21 @@ async function resolveMatches(
   }
 
   const all = await searchCards(config.slug, term, number, fx);
+  // Magic's results come from Scryfall rather than the index, so the set menu
+  // is built from whatever came back rather than from a catalogue.
+  const counts = new Map<string, { id: string; name: string; count: number }>();
+  for (const card of all) {
+    const seen = counts.get(card.setCode);
+    if (seen) seen.count += 1;
+    else counts.set(card.setCode, { id: card.setCode, name: card.setName, count: 1 });
+  }
+  const scoped = filters.setId ? all.filter((c) => c.setCode === filters.setId) : all;
+
   return {
-    found: all.slice(offset, offset + PAGE_SIZE),
-    total: all.length,
+    found: scoped.slice(offset, offset + PAGE_SIZE),
+    total: scoped.length,
     correctedTo,
+    sets: [...counts.values()],
   };
 }
 
@@ -336,8 +357,16 @@ export default async function handler(
   }
 
   const offset = Math.max(0, Math.min(500, Number(req.query.offset) || 0));
+  const setId = typeof req.query.set === "string" ? req.query.set.slice(0, 40) : null;
+  const sortParam = typeof req.query.sort === "string" ? req.query.sort : "";
+  const sort: SortOrder =
+    sortParam === "oldest" || sortParam === "number" ? sortParam : "newest";
+  // Only cards a Canadian shop we track actually stocks. Applied after the
+  // listings join, because whether we have one is not something the card
+  // catalogue knows.
+  const inStockOnly = req.query.stocked === "1";
 
-  const cacheKey = `${config.slug}:${raw.toLowerCase()}:${offset}`;
+  const cacheKey = `${config.slug}:${raw.toLowerCase()}:${offset}:${setId ?? ""}:${sort}:${inStockOnly}`;
   const hit = cache.get(cacheKey);
   if (hit && hit.expiresAt > Date.now()) {
     res.setHeader("X-Cache", "hit");
@@ -348,13 +377,14 @@ export default async function handler(
 
   try {
     const fx = await usdToCad();
-    const { found, total, correctedTo } = await resolveMatches(
+    const { found, total, correctedTo, sets } = await resolveMatches(
       config,
       name,
       number,
       setTotal,
       fx,
-      offset
+      offset,
+      { setId, sort }
     );
 
     // Our own listings are a join onto whatever the provider identified, and a
@@ -386,15 +416,25 @@ export default async function handler(
       };
     });
 
+    // Applied to the page rather than to the query: whether a Canadian shop
+    // stocks a printing is not something the card catalogue knows, so it can
+    // only be decided once the listings are joined. That means the filter
+    // thins the page it is on rather than paging deeper, and the count below
+    // says so rather than pretending otherwise.
+    const shown = inStockOnly
+      ? matches.filter((m) => m.listings.some((l) => l.inStock))
+      : matches;
+
     const data: LookupResponse = {
       query: raw,
       tcg: config.slug,
-      matches,
+      matches: shown,
       unconfirmedListings: dedupeListings(loose),
       exact: !!number && total === 1,
       total,
       offset,
       correctedTo,
+      sets,
       note:
         total === 0
           ? "No card matched. Check the spelling, or try the collector number from the bottom of the card."
