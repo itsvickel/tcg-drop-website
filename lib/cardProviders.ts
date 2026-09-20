@@ -283,7 +283,11 @@ function fromTcgdex(card: TcgdexCard, fx: number): Omit<CardMatch, "listings"> {
     setTotal: card.set?.cardCount?.official ?? null,
     rarity: card.rarity ?? null,
     imageUrl: tcgdexImage(card.image),
-    sourceUrl: `https://www.tcgdex.net/en/${(card.set?.id ?? "").split("-")[0]}/${card.set?.id ?? ""}/${card.localId ?? ""}`,
+    // Deliberately empty. This used to build a tcgdex.net card URL, and every
+    // one of them 404s — the site has no per-card pages at that path. The
+    // working link is TCGplayer's, which card-lookup overlays from the price
+    // table; a card we have no price for gets no link rather than a dead one.
+    sourceUrl: "",
     marketUsd: usd,
     marketCad: usd === null ? null : Math.round(usd * fx * 100) / 100,
   };

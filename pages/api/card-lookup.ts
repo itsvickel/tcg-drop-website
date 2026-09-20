@@ -293,7 +293,7 @@ async function resolveMatches(
         }
     );
     return {
-      found: withMarketPrices(found, await loadCardPrices(config), fx),
+      found,
       total: result.total,
       correctedTo: result.correctedTo,
       sets: result.sets,
@@ -410,7 +410,7 @@ async function resolveById(
       marketCad: null,
     }];
     return {
-      found: withMarketPrices(fallback, await loadCardPrices(config), fx),
+      found: fallback,
       total: 1,
       correctedTo: null,
       sets: [],
@@ -469,9 +469,16 @@ export default async function handler(
 
   try {
     const fx = await usdToCad();
-    const { found, total, correctedTo, sets } = cardId
+    const { found: resolved, total, correctedTo, sets } = cardId
       ? await resolveById(config, cardId, fx)
       : await resolveMatches(config, name, number, setTotal, fx, offset, { setId, sort });
+
+    // Applied here rather than inside each resolver, because there are three
+    // ways a card can arrive — by id, from the index, or from the provider
+    // fallback — and an earlier version of this patched only two of them. The
+    // one it missed was the fallback, which is precisely the path that emits
+    // the provider's own data and so the one most in need of correcting.
+    const found = withMarketPrices(resolved, await loadCardPrices(config), fx);
 
     // Our own listings are a join onto whatever the provider identified, and a
     // feed outage must not stop the lookup from identifying the card.
