@@ -42,13 +42,17 @@ const FETCH_TIMEOUT_MS = 15_000;
  * most needs hands-on testing the one feature that could not be tested.
  *
  * Set LOCAL_DATA_DIR to point at a tcg-drop-alert checkout, or leave it unset
- * and the sibling directory is used when it exists. Never consulted in
- * production, where Vercel Blob serves these in milliseconds.
+ * and the sibling directory is used when it exists.
+ *
+ * Gated on Vercel's own marker rather than NODE_ENV, because `next build` sets
+ * NODE_ENV=production and a local production build is exactly when this is
+ * wanted: otherwise every prerendered page waits on the same slow API and
+ * builds with empty data, which is not a useful rehearsal of the real one.
+ * On Vercel the variable is always set, so this is never consulted there.
  */
-const LOCAL_DATA_DIR =
-  process.env.NODE_ENV === "production"
-    ? ""
-    : process.env.LOCAL_DATA_DIR ?? "../tcg-drop-alert";
+const LOCAL_DATA_DIR = process.env.VERCEL
+  ? ""
+  : process.env.LOCAL_DATA_DIR ?? "../tcg-drop-alert";
 
 const BLOB_BASE_URL = process.env.BLOB_BASE_URL ?? "";
 const GITHUB_REPO   = process.env.GITHUB_REPO ?? "";
