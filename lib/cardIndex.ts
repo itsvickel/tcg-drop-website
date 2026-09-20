@@ -37,10 +37,18 @@ type RawIndex = {
   generated_at?: string;
   game?: string;
   image_prefix?: string;
+  /** How a row becomes an image URL: "tcgdex" (a stored path) or "scryfall". */
+  image_style?: string;
   sets?: Record<string, SetInfo>;
-  /** [id, name, number, setId, image] */
-  cards?: [string, string, string, string, string][];
-  /** Magic carries names only — Scryfall search covers printings itself. */
+  /** [id, name, number, setId, image?] — Scryfall rows omit the image. */
+  cards?: [string, string, string, string, string?][];
+  /**
+   * Every card name, for fuzzy-correcting an OCR reading.
+   *
+   * Magic ships this alongside its printings rather than instead of them: the
+   * printings are what artwork matching needs, and the name list covers names
+   * that no longer have a distinct printing of their own.
+   */
   names?: string[];
 };
 
@@ -83,6 +91,12 @@ export function parseCardIndex(raw: ArrayBuffer | Buffer): CardIndex {
 
     const sets = parsed.sets ?? {};
     const prefix = parsed.image_prefix ?? "";
+    // The two catalogues address images differently, and the file says which
+    // rather than this inferring it. TCGdex stores a path per card and needs a
+    // quality suffix; Scryfall's path is derivable from the card id, so its
+    // rows carry no image field at all — which is about 3MB of URLs not
+    // written, and why this branch exists rather than a sixth column.
+    const scryfallImages = parsed.image_style === "scryfall";
     const cards: IndexedCard[] = (parsed.cards ?? []).map(
       ([id, name, number, setId, image]) => ({
         id,
@@ -91,7 +105,13 @@ export function parseCardIndex(raw: ArrayBuffer | Buffer): CardIndex {
         setId,
         setName: sets[setId]?.name ?? setId,
         setTotal: sets[setId]?.total ?? 0,
-        imageUrl: image ? `${prefix}${image}/high.webp` : "",
+        imageUrl: scryfallImages
+          ? id.length > 1
+            ? `${prefix}${id[0]}/${id[1]}/${id}.jpg`
+            : ""
+          : image
+            ? `${prefix}${image}/high.webp`
+            : "",
       })
     );
 

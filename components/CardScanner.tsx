@@ -77,6 +77,16 @@ type Props = {
    */
   onRead: (query: string, cardId?: string, tiedIds?: string[]) => void;
   onClose: () => void;
+  /**
+   * Bumped by the page when the user asks to scan another card.
+   *
+   * The loop refuses to emit the same card twice in a row, which is what stops
+   * a card held in front of the lens from firing a lookup every second. But it
+   * also meant that after dismissing a result, pointing at that same card again
+   * did nothing at all — the most obvious thing to try, and it looked broken.
+   * Changing this clears the memory of what was last read.
+   */
+  rescanKey?: number;
 };
 
 type Phase = "starting" | "scanning" | "error";
@@ -87,7 +97,7 @@ type Worker = {
   terminate: () => Promise<unknown>;
 };
 
-export default function CardScanner({ tcg, onRead, onClose }: Props) {
+export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -455,6 +465,15 @@ export default function CardScanner({ tcg, onRead, onClose }: Props) {
       await new Promise((r) => setTimeout(r, LOOP_PAUSE_MS));
     }
   }, [matchByArt, readOnce]);
+
+  useEffect(() => {
+    // Forget the last reading so the same card can be scanned again. The
+    // consensus buffer goes too, otherwise the previous card's votes would
+    // carry into the next one.
+    lastEmittedRef.current = "";
+    recentRef.current = [];
+    setReading("");
+  }, [rescanKey]);
 
   useEffect(() => {
     let cancelled = false;

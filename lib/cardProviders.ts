@@ -397,6 +397,33 @@ const CARD_TTL_MS = 6 * 60 * 60 * 1000;
 const MAX_CARD_CACHE = 4000;
 const cardCache = new Map<string, { expiresAt: number; value: TcgdexCard | null }>();
 
+/**
+ * One Magic card by its Scryfall id.
+ *
+ * The counterpart to hydratePokemonCard, and it exists for the same reason the
+ * Pokemon one does: the scanner recognises a card by its artwork and hands back
+ * an id, which then has to become a priced card. Without this, an artwork match
+ * on a Magic card resolved to nothing at all.
+ *
+ * Scryfall ids are UUIDs and TCGdex ids are not, so the two never collide and
+ * the caller can route on the game alone.
+ */
+export async function hydrateScryfallCard(
+  id: string,
+  fx: number
+): Promise<Omit<CardMatch, "listings"> | null> {
+  // Ids come off a scan and go straight into a URL. Scryfall ids are UUIDs and
+  // nothing else, so anything that is not one is rejected rather than sent.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return null;
+  }
+  const fetched = await getJson<ScryfallCard>(`https://api.scryfall.com/cards/${id}`);
+  // A failed request is not cached and not reported as "no such card": a slow
+  // moment must not tell somebody the card in their hand does not exist.
+  if (!fetched.ok || !fetched.data) return null;
+  return fromScryfall(fetched.data, fx);
+}
+
 export async function hydratePokemonCard(
   id: string,
   fx: number

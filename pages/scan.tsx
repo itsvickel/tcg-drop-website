@@ -49,6 +49,19 @@ export default function ScanPage() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  /**
+   * Whether a scan is waiting to be acknowledged.
+   *
+   * The camera fills the screen on a phone and the results render underneath
+   * it, so a successful scan used to produce no visible change at all — you had
+   * to know to scroll. This drives a sheet over the camera instead, opened the
+   * instant a card is recognised rather than when the lookup returns, so there
+   * is immediate feedback that the scan landed and then the answer arrives in
+   * the same place.
+   */
+  const [scanSheet, setScanSheet] = useState(false);
+  /** Incremented on "Scan another", to let the scanner re-read the same card. */
+  const [rescanKey, setRescanKey] = useState(0);
   const [setId, setSetId] = useState("");
   const [sort, setSort] = useState("newest");
   const [stockedOnly, setStockedOnly] = useState(false);
@@ -159,6 +172,9 @@ export default function ScanPage() {
       // than filled with the id; `runLookup` puts the card's real name there
       // once the lookup comes back.
       const byArt = !!cardId || !!tiedIds?.length;
+      // Opened before the lookup, not after: the point is to confirm the scan
+      // registered, and waiting for the network to say so is the problem.
+      setScanSheet(true);
       setQuery(byArt ? "" : text);
       void runLookup(text, tcg, 0, {
         setId: byArt ? "" : setId,
@@ -274,7 +290,27 @@ export default function ScanPage() {
           <CardScanner
             tcg={tcg}
             onRead={handleScan}
-            onClose={() => setCameraOpen(false)}
+            rescanKey={rescanKey}
+            onClose={() => {
+              setCameraOpen(false);
+              setScanSheet(false);
+            }}
+          />
+        )}
+
+        {cameraOpen && scanSheet && (
+          <ScanSheet
+            loading={loading}
+            error={error}
+            result={result}
+            onScanAnother={() => {
+              setScanSheet(false);
+              setRescanKey((n) => n + 1);
+            }}
+            onDone={() => {
+              setCameraOpen(false);
+              setScanSheet(false);
+            }}
           />
         )}
 
@@ -446,6 +482,111 @@ export default function ScanPage() {
 
       <Footer syncedAt={null} retailersCount={0} productsCount={0} />
     </>
+  );
+}
+
+/**
+ * What the scanner found, over the top of the camera.
+ *
+ * A phone screen is all viewfinder, and the results list sits below it. Without
+ * this there was no moment where the app said "got it" — you pointed at a card
+ * and nothing appeared to happen, which reads as a broken scanner even when the
+ * match was perfect.
+ *
+ * It opens on recognition rather than on the answer, so the acknowledgement is
+ * immediate and the price fills in behind it. The primary action is scanning
+ * the next card, because anyone holding one card is usually holding a stack.
+ */
+function ScanSheet({
+  loading,
+  error,
+  result,
+  onScanAnother,
+  onDone,
+}: {
+  loading: boolean;
+  error: string | null;
+  result: LookupResponse | null;
+  onScanAnother: () => void;
+  onDone: () => void;
+}) {
+  const matches = result?.matches ?? [];
+  const top = matches[0] ?? null;
+  const extra = Math.max(0, (result?.total ?? 0) - 1);
+
+  return (
+    <div className={styles.sheet} role="dialog" aria-modal="false" aria-live="polite">
+      <div className={styles.sheetInner}>
+        {loading && (
+          <p className={styles.sheetStatus}>
+            <span className={styles.sheetSpinner} aria-hidden="true" />
+            Got it — looking up the price…
+          </p>
+        )}
+
+        {!loading && error && <p className={styles.sheetError}>{error}</p>}
+
+        {!loading && !error && !top && (
+          <p className={styles.sheetStatus}>
+            Recognised the card but found no match. Try the name instead.
+          </p>
+        )}
+
+        {!loading && top && (
+          <>
+            <div className={styles.sheetCard}>
+              {top.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className={styles.sheetArt} src={top.imageUrl} alt={top.name} />
+              ) : (
+                <div className={styles.sheetArtEmpty} aria-hidden="true" />
+              )}
+              <div className={styles.sheetBody}>
+                <h2 className={styles.sheetName}>{top.name}</h2>
+                <p className={styles.sheetMeta}>
+                  {top.setName}
+                  {top.collectorNumber ? ` · #${top.collectorNumber}` : ""}
+                </p>
+                <p className={styles.sheetPrice}>
+                  {top.marketCad !== null ? (
+                    <>
+                      <strong>${top.marketCad.toFixed(2)} CAD</strong>
+                      <span className={styles.sheetPriceNote}>market reference</span>
+                    </>
+                  ) : (
+                    <span className={styles.sheetPriceNote}>No market price published</span>
+                  )}
+                </p>
+                {/* The Canadian listing is the reason this site exists, so it
+                    outranks the US reference above when there is one. */}
+                {top.listings.length > 0 && (
+                  <p className={styles.sheetListing}>
+                    ${top.listings[0].price.toFixed(2)} at {top.listings[0].retailer}
+                    {top.listings[0].inStock ? "" : " (out of stock)"}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {extra > 0 && (
+              <p className={styles.sheetMore}>
+                {extra} other printing{extra === 1 ? "" : "s"} below — their prices
+                can differ by a lot.
+              </p>
+            )}
+          </>
+        )}
+
+        <div className={styles.sheetActions}>
+          <button type="button" className={styles.sheetPrimary} onClick={onScanAnother}>
+            Scan another
+          </button>
+          <button type="button" className={styles.sheetSecondary} onClick={onDone}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

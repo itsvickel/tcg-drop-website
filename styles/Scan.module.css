@@ -486,3 +486,165 @@
   margin: -6px 0 12px;
   max-width: 68ch;
 }
+
+/* ── Scan result sheet ──────────────────────────────────────────────────────
+   Pinned to the bottom of the viewport rather than placed in the flow. On a
+   phone the camera fills the screen and the results list sits below the fold,
+   so a successful scan produced no visible change and read as a dead scanner.
+   This is the acknowledgement, and it appears the moment a card is recognised
+   rather than when the lookup returns. */
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  animation: sheetIn 180ms ease-out;
+}
+
+@keyframes sheetIn {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.sheetInner {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 460px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  /* Lifted off the page, because it overlays a live camera and needs to read
+     as a layer rather than as more page. */
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.55);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.sheetStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #c9d1d9;
+}
+
+.sheetSpinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 2px solid #30363d;
+  border-top-color: var(--game, #58a6ff);
+  border-radius: 50%;
+  animation: sheetSpin 700ms linear infinite;
+}
+
+@keyframes sheetSpin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet { animation: none; }
+  .sheetSpinner { animation-duration: 2.4s; }
+}
+
+.sheetError {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #f85149;
+}
+
+.sheetCard {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.sheetArt, .sheetArtEmpty {
+  width: 74px;
+  aspect-ratio: 5 / 7;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #0d1117;
+  border: 1px solid #30363d;
+}
+
+.sheetBody { min-width: 0; }
+
+.sheetName {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  color: #e6edf3;
+}
+
+.sheetMeta {
+  margin: 3px 0 7px;
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+
+.sheetPrice {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #e6edf3;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.sheetPriceNote {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+
+/* The Canadian listing is the number this site exists to show, so it is given
+   the accent the US reference above it does not get. */
+.sheetListing {
+  margin: 5px 0 0;
+  font-size: 0.86rem;
+  color: var(--game-text, #58a6ff);
+}
+
+.sheetMore {
+  margin: 11px 0 0;
+  font-size: 0.78rem;
+  color: #8b949e;
+}
+
+.sheetActions {
+  display: flex;
+  gap: 9px;
+  margin-top: 13px;
+}
+
+.sheetPrimary, .sheetSecondary {
+  flex: 1;
+  padding: 11px 12px;
+  border-radius: 9px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  /* Comfortably past the 44px tap target, because this is used one-handed
+     while the other hand is holding a card. */
+  min-height: 44px;
+}
+
+.sheetPrimary {
+  border: 1px solid var(--game-border, #58a6ff);
+  background: var(--game-bg, rgba(88, 166, 255, 0.14));
+  color: var(--game-text, #58a6ff);
+}
+
+.sheetSecondary {
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+
+.sheetPrimary:hover { filter: brightness(1.14); }
+.sheetSecondary:hover { border-color: #8b949e; }

@@ -6,6 +6,7 @@ import { getClientIp, rateLimit } from "../../lib/rateLimit";
 import {
   ProviderUnavailable,
   hydratePokemonPage,
+  hydrateScryfallCard,
   searchCards,
 } from "../../lib/cardProviders";
 import { loadCardIndex } from "../../lib/serverCardIndex";
@@ -387,8 +388,13 @@ async function resolveById(
   const index = await loadCardIndex(config);
   const known = index.cards.find((c) => c.id === cardId);
 
-  const priced = await hydratePokemonPage([cardId], fx);
-  const card = priced.get(cardId);
+  // Routed on the game, because the two catalogues do not share an id space and
+  // asking the wrong provider is a guaranteed miss. This branch is what makes
+  // an artwork match work for Magic at all — before it, a scanned Magic card
+  // produced an id that resolved to nothing.
+  const card = config.slug === "mtg"
+    ? await hydrateScryfallCard(cardId, fx)
+    : (await hydratePokemonPage([cardId], fx)).get(cardId);
 
   if (card) return { found: [card], total: 1, correctedTo: null, sets: [] };
 
