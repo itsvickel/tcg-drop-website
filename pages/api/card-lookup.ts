@@ -331,6 +331,57 @@ async function resolveMatches(
   };
 }
 
+/**
+ * One printing, named outright by the scanner's artwork match.
+ *
+ * Still hydrated through the provider for its price and rarity, and still
+ * joined to Canadian listings — the only thing skipped is deciding *which* card
+ * this is, because the picture already settled that.
+ */
+async function resolveById(
+  config: TcgConfig,
+  cardId: string,
+  fx: number
+): Promise<{
+  found: Omit<CardMatch, "listings">[];
+  total: number;
+  correctedTo: string | null;
+  sets: { id: string; name: string; count: number }[];
+}> {
+  const index = await loadCardIndex(config);
+  const known = index.cards.find((c) => c.id === cardId);
+
+  const priced = await hydratePokemonPage([cardId], fx);
+  const card = priced.get(cardId);
+
+  if (card) return { found: [card], total: 1, correctedTo: null, sets: [] };
+
+  // The provider could not price it inside the budget. The index still knows
+  // what the card is, and saying so beats reporting that the card the user is
+  // holding does not exist.
+  if (known) {
+    return {
+      found: [{
+        id: known.id,
+        name: known.name,
+        setName: known.setName,
+        setCode: known.setId.toUpperCase(),
+        collectorNumber: known.number,
+        setTotal: known.setTotal || null,
+        rarity: null,
+        imageUrl: known.imageUrl,
+        sourceUrl: "",
+        marketUsd: null,
+        marketCad: null,
+      }],
+      total: 1,
+      correctedTo: null,
+      sets: [],
+    };
+  }
+  return { found: [], total: 0, correctedTo: null, sets: [] };
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<LookupResponse | { error: string }>
@@ -365,8 +416,12 @@ export default async function handler(
   // listings join, because whether we have one is not something the card
   // catalogue knows.
   const inStockOnly = req.query.stocked === "1";
+  // Set when the scanner recognised the artwork. It names one printing, so the
+  // search is skipped entirely — matching a picture is a stronger answer than
+  // a name, which may belong to two hundred cards.
+  const cardId = typeof req.query.id === "string" ? req.query.id.slice(0, 60) : null;
 
-  const cacheKey = `${config.slug}:${raw.toLowerCase()}:${offset}:${setId ?? ""}:${sort}:${inStockOnly}`;
+  const cacheKey = `${config.slug}:${cardId ?? raw.toLowerCase()}:${offset}:${setId ?? ""}:${sort}:${inStockOnly}`;
   const hit = cache.get(cacheKey);
   if (hit && hit.expiresAt > Date.now()) {
     res.setHeader("X-Cache", "hit");
@@ -377,15 +432,9 @@ export default async function handler(
 
   try {
     const fx = await usdToCad();
-    const { found, total, correctedTo, sets } = await resolveMatches(
-      config,
-      name,
-      number,
-      setTotal,
-      fx,
-      offset,
-      { setId, sort }
-    );
+    const { found, total, correctedTo, sets } = cardId
+      ? await resolveById(config, cardId, fx)
+      : await resolveMatches(config, name, number, setTotal, fx, offset, { setId, sort });
 
     // Our own listings are a join onto whatever the provider identified, and a
     // feed outage must not stop the lookup from identifying the card.

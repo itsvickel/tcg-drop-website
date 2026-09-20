@@ -12,6 +12,24 @@
  * e.g. https://abc.public.blob.vercel-storage.com/pokemon/state.json
  */
 
+/**
+ * How long any single upstream read may take.
+ *
+ * None of these had a deadline, which meant a slow blob or a stalled GitHub
+ * connection hung until something else gave up first. During a build that
+ * something else is Next's static worker, which kills the page at 60 seconds,
+ * retries three times and then fails the whole build — so a page with a
+ * perfectly good try/catch fallback never reached its catch, because the fetch
+ * had not failed, it had merely not finished. That is how a slow network turns
+ * into a failed deploy with nothing in the log to explain it.
+ *
+ * Fifteen seconds is far longer than a healthy read of a few hundred kilobytes
+ * and comfortably inside the 60 second budget, so a timeout now degrades to the
+ * GitHub fallback, or to the page's own cached or empty state, instead of
+ * taking the deploy down.
+ */
+const FETCH_TIMEOUT_MS = 15_000;
+
 const BLOB_BASE_URL = process.env.BLOB_BASE_URL ?? "";
 const GITHUB_REPO   = process.env.GITHUB_REPO ?? "";
 const GITHUB_TOKEN  = process.env.GITHUB_TOKEN ?? "";
@@ -19,7 +37,10 @@ const GITHUB_TOKEN  = process.env.GITHUB_TOKEN ?? "";
 async function fetchFromBlob<T>(blobPath: string): Promise<T> {
   if (!BLOB_BASE_URL) throw new Error("BLOB_BASE_URL not set");
   const url = `${BLOB_BASE_URL}/${blobPath}`;
-  const res = await fetch(url, { next: { revalidate: 180 } } as RequestInit);
+  const res = await fetch(url, {
+    next: { revalidate: 180 },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  } as RequestInit);
   if (!res.ok) throw new Error(`Blob fetch failed: ${res.status} for ${blobPath}`);
   return res.json() as Promise<T>;
 }
@@ -32,6 +53,7 @@ async function fetchFromGitHub<T>(filePath: string): Promise<T> {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
       Accept: "application/vnd.github.raw+json",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -93,6 +115,7 @@ export async function fetchGameBytes(
     try {
       const res = await fetch(`${BLOB_BASE_URL}/${filePath}`, {
         next: { revalidate: 900 },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       } as RequestInit);
       if (res.ok) return Buffer.from(await res.arrayBuffer());
     } catch (err) {
@@ -106,6 +129,7 @@ export async function fetchGameBytes(
       Authorization: `Bearer ${GITHUB_TOKEN}`,
       Accept: "application/vnd.github.raw",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`GitHub fetch failed: ${res.status} for ${filePath}`);
   return Buffer.from(await res.arrayBuffer());

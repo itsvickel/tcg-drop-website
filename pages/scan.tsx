@@ -64,7 +64,7 @@ export default function ScanPage() {
       text: string,
       game: TcgSlug,
       offset = 0,
-      filters: { setId?: string; sort?: string; stocked?: boolean } = {}
+      filters: { setId?: string; sort?: string; stocked?: boolean; cardId?: string } = {}
     ) => {
       const trimmed = text.trim();
       if (trimmed.length < 2) return;
@@ -84,6 +84,9 @@ export default function ScanPage() {
         });
         if (filters.setId) params.set("set", filters.setId);
         if (filters.stocked) params.set("stocked", "1");
+        // An exact printing recognised by its artwork. The server skips
+        // searching entirely when this is present.
+        if (filters.cardId) params.set("id", filters.cardId);
         const res = await fetch(`/api/card-lookup?${params}`);
         const payload = await res.json();
         if (!res.ok) {
@@ -98,6 +101,18 @@ export default function ScanPage() {
               ? { ...next, matches: [...prev.matches, ...next.matches] }
               : next
           );
+
+          // A lookup by artwork was submitted as a card id, which is not
+          // something anyone can search for. Now that the card is known, its
+          // name replaces the id as what was searched — because `submitted` is
+          // what the set filter, the game switch and Show more all re-run, and
+          // every one of them would otherwise go hunting for "sv08.5-009" and
+          // come back with nothing.
+          const identified = next.matches[0]?.name;
+          if (filters.cardId && identified) {
+            setQuery(identified);
+            setSubmitted(identified);
+          }
         }
       } catch {
         if (offset === 0) setResult(null);
@@ -126,13 +141,24 @@ export default function ScanPage() {
   );
 
   const handleScan = useCallback(
-    (text: string) => {
+    (text: string, cardId?: string) => {
       // The camera stays open. The scanner reads continuously, so closing it on
       // the first hit would end the session at the exact moment somebody wants
       // to check the next card — and if the reading was wrong, it would also
       // have taken away the only way to try again.
-      setQuery(text);
-      void runLookup(text, tcg, 0, { setId, sort, stocked: stockedOnly });
+      //
+      // A card recognised by artwork carries its id, and the set filter is
+      // dropped for it: the picture already named one printing, and filtering
+      // that to a set could only ever hide it. The box is left empty rather
+      // than filled with the id; `runLookup` puts the card's real name there
+      // once the lookup comes back.
+      setQuery(cardId ? "" : text);
+      void runLookup(text, tcg, 0, {
+        setId: cardId ? "" : setId,
+        sort,
+        stocked: stockedOnly,
+        cardId,
+      });
     },
     [runLookup, setId, sort, stockedOnly, tcg]
   );

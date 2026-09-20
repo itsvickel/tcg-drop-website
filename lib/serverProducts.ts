@@ -16,6 +16,13 @@ import {
 } from "./products";
 import { EMPTY_STOCK_STATS, type StockStats } from "./stockStats";
 
+/**
+ * Deadline for an upstream read. See the note on FETCH_TIMEOUT_MS in
+ * dataFetcher.ts: without one, a stalled connection runs out Next's 60-second
+ * static-generation budget and fails the build rather than falling back.
+ */
+const FETCH_TIMEOUT_MS = 15_000;
+
 async function fetchFromGitHubRaw<T>(repo: string, token: string, filePath: string): Promise<T> {
   const url = `https://api.github.com/repos/${repo}/contents/${filePath}`;
   const response = await fetch(url, {
@@ -23,6 +30,7 @@ async function fetchFromGitHubRaw<T>(repo: string, token: string, filePath: stri
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github.raw+json",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
