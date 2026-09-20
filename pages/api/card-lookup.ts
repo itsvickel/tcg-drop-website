@@ -9,6 +9,7 @@ import {
   searchCards,
 } from "../../lib/cardProviders";
 import { loadCardIndex } from "../../lib/serverCardIndex";
+import { loadCardPrices, priceFor } from "../../lib/serverCardPrices";
 import {
   correctName,
   normalise as normaliseIndexName,
@@ -292,7 +293,7 @@ async function resolveMatches(
         }
     );
     return {
-      found,
+      found: withMarketPrices(found, await loadCardPrices(config), fx),
       total: result.total,
       correctedTo: result.correctedTo,
       sets: result.sets,
@@ -338,6 +339,41 @@ async function resolveMatches(
  * joined to Canadian listings — the only thing skipped is deciding *which* card
  * this is, because the picture already settled that.
  */
+/**
+ * Attach TCGplayer's market price and a link that opens.
+ *
+ * Applied last, over whatever the index or the provider produced, because it is
+ * the better source for both fields and neither of them was working. The
+ * provider left `marketUsd` null on every card on the live site, and built a
+ * `sourceUrl` on tcgdex.net where every card 404s.
+ *
+ * A card we have no trustworthy price for keeps its nulls and loses the dead
+ * link rather than gaining a guessed one. See serverCardPrices.ts: roughly a
+ * fifth of the catalogue is in that position, and showing nothing is the
+ * correct answer when we cannot tell which card we are looking at.
+ */
+function withMarketPrices<T extends Omit<CardMatch, "listings">>(
+  cards: T[],
+  prices: Awaited<ReturnType<typeof loadCardPrices>>,
+  fx: number
+): T[] {
+  return cards.map((card) => {
+    const found = priceFor(prices, card.id);
+    if (!found) {
+      // Drop the tcgdex.net link even when unpriced: it 404s for every card,
+      // and a link that never works is worse than no link.
+      return card.sourceUrl.includes("tcgdex.net") ? { ...card, sourceUrl: "" } : card;
+    }
+    return {
+      ...card,
+      rarity: card.rarity ?? found.rarity,
+      sourceUrl: found.productUrl,
+      marketUsd: found.usd,
+      marketCad: Math.round(found.usd * fx * 100) / 100,
+    };
+  });
+}
+
 async function resolveById(
   config: TcgConfig,
   cardId: string,
@@ -360,20 +396,21 @@ async function resolveById(
   // what the card is, and saying so beats reporting that the card the user is
   // holding does not exist.
   if (known) {
+    const fallback = [{
+      id: known.id,
+      name: known.name,
+      setName: known.setName,
+      setCode: known.setId.toUpperCase(),
+      collectorNumber: known.number,
+      setTotal: known.setTotal || null,
+      rarity: null,
+      imageUrl: known.imageUrl,
+      sourceUrl: "",
+      marketUsd: null,
+      marketCad: null,
+    }];
     return {
-      found: [{
-        id: known.id,
-        name: known.name,
-        setName: known.setName,
-        setCode: known.setId.toUpperCase(),
-        collectorNumber: known.number,
-        setTotal: known.setTotal || null,
-        rarity: null,
-        imageUrl: known.imageUrl,
-        sourceUrl: "",
-        marketUsd: null,
-        marketCad: null,
-      }],
+      found: withMarketPrices(fallback, await loadCardPrices(config), fx),
       total: 1,
       correctedTo: null,
       sets: [],
