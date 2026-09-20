@@ -231,7 +231,7 @@ export default function CalendarPage() {
   return (
     <>
       <Head>
-        <title>Release Calendar — {config.displayName} Price Tracker</title>
+        <title>{`Release Calendar — ${config.displayName} Price Tracker`}</title>
         <meta name="description" content={`Upcoming and recent ${config.displayName} set release dates`} />
       </Head>
 

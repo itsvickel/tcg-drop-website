@@ -260,7 +260,7 @@ export default function DropsPage() {
   return (
     <>
       <Head>
-        <title>Upcoming Drops — {config.displayName}</title>
+        <title>{`Upcoming Drops — ${config.displayName}`}</title>
         <meta
           name="description"
           content={`When and where upcoming ${config.displayName} drops go live, with a confidence rating on every date.`}
