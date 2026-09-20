@@ -6,6 +6,7 @@ import {
   artOutcome,
   EMPTY_HASH_TABLE,
   hashCardRegions,
+  hashPhoto,
   matchArt,
   parseHashTable,
   type HashTable,
@@ -105,6 +106,7 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
   const streamRef = useRef<MediaStream | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const guideRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const runningRef = useRef(false);
   /**
    * The callback, held in a ref.
@@ -129,6 +131,7 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
   const [artCount, setArtCount] = useState(0);
   const [torchOn, setTorchOn] = useState(false);
   const [torchable, setTorchable] = useState(false);
+  const [photoNote, setPhotoNote] = useState<string | null>(null);
   /**
    * Every card name, fetched once.
    *
@@ -399,6 +402,74 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
     return query;
   }, [cropBand, resolveName]);
 
+  /**
+   * Identify a card from a still photo.
+   *
+   * Worth having for three reasons: a camera can be declined or absent, a
+   * desktop has no useful one, and people already have photos of cards. On a
+   * phone this opens the camera roll or the camera itself, whichever the user
+   * picks.
+   *
+   * It does not reuse the live path, because a photo is a different problem: the
+   * viewfinder crops to the on-screen guide so the card fills the frame, and a
+   * photo has a desk around it. Measured on real cards, a card filling 85% of a
+   * photo matched nothing at all against the whole frame and matched every time
+   * once a few centred card-shaped rectangles were tried — so hashPhoto searches
+   * for the card rather than assuming it is the picture.
+   */
+  const readPhoto = useCallback(
+    async (file: File) => {
+      setPhotoNote("Reading the photo…");
+      try {
+        const bitmap = await createImageBitmap(file);
+        // Downscaled for the same reason the live path is: the fingerprint
+        // area-averages to 9x8 regardless, and pulling a 12-megapixel photo
+        // through a canvas is the only expensive part.
+        const w = Math.min(720, bitmap.width);
+        const h = Math.round((bitmap.height / bitmap.width) * w);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) {
+          setPhotoNote("Could not read that image.");
+          return;
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        bitmap.close?.();
+
+        const table = artRef.current;
+        if (table.count === 0) {
+          setPhotoNote("Card pictures are still loading — try again in a moment.");
+          return;
+        }
+
+        const { data } = ctx.getImageData(0, 0, w, h);
+        const match = matchArt(table, hashPhoto(data, w, h));
+        const outcome = artOutcome(match);
+
+        if (outcome === "pinned") {
+          setPhotoNote(null);
+          onReadRef.current(match!.hash, match!.hash, undefined);
+        } else if (outcome === "ambiguous") {
+          setPhotoNote(null);
+          onReadRef.current(match!.hash, undefined, match!.ties);
+        } else {
+          // Specific, because the fix is specific. Below about 70% of the frame
+          // this stops working, and "crop it tighter" is the actionable advice.
+          setPhotoNote(
+            "No match. Crop so the card fills most of the photo, and keep it straight on."
+          );
+        }
+      } catch {
+        setPhotoNote("Could not read that image.");
+      }
+    },
+    []
+  );
+
   /** The scan loop. Runs until the component unmounts or the camera closes. */
   /**
    * The scan loop: picture first, title second.
@@ -648,7 +719,28 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
         </p>
       )}
 
+      {photoNote && <p className={styles.privacy}>{photoNote}</p>}
+
       <div className={styles.scanActions}>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className={styles.fileInput}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            // Cleared so picking the same file twice still fires a change.
+            e.target.value = "";
+            if (file) void readPhoto(file);
+          }}
+        />
+        <button
+          type="button"
+          className={styles.secondaryBtn}
+          onClick={() => fileRef.current?.click()}
+        >
+          Use a photo
+        </button>
         {torchable && (
           <button type="button" className={styles.secondaryBtn} onClick={toggleTorch}>
             {torchOn ? "Light off" : "Light on"}

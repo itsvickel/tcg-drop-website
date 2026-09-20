@@ -15,6 +15,7 @@ import {
   EMPTY_HASH_TABLE,
   hamming,
   hashCardRegion,
+  hashPhoto,
   HASH_SIZE,
   artOutcome,
   isArtConfident,
@@ -22,6 +23,7 @@ import {
   MAX_ART_DISTANCE,
   parseHashTable,
   OFFSET_BOXES,
+  photoCardRects,
   type HashTable,
 } from "../lib/artHash";
 
@@ -289,5 +291,67 @@ describe("isArtConfident", () => {
 
   it("refuses nothing at all", () => {
     expect(isArtConfident(null)).toBe(false);
+  });
+});
+
+describe("photoCardRects", () => {
+  /**
+   * A photo is not a viewfinder. The camera crops to the on-screen guide so the
+   * card fills the frame; a photo has a desk around it, and that difference is
+   * total rather than gradual. Measured on real cards at 85% fill: nothing
+   * matched against the whole frame, everything matched once these rectangles
+   * were searched.
+   */
+  it("offers the whole frame first, then progressively smaller crops", () => {
+    const rects = photoCardRects(800, 1000);
+    expect(rects.length).toBeGreaterThan(3);
+    for (let i = 1; i < rects.length; i += 1) {
+      expect(rects[i].h).toBeLessThan(rects[i - 1].h);
+    }
+  });
+
+  it("keeps every rectangle card-shaped and centred", () => {
+    for (const [w, h] of [[800, 1000], [1000, 800], [600, 600]]) {
+      for (const r of photoCardRects(w, h)) {
+        // 63mm x 88mm, within a pixel of rounding.
+        expect(r.w / r.h).toBeCloseTo(63 / 88, 1);
+        expect(Math.abs(r.x + r.w / 2 - w / 2)).toBeLessThanOrEqual(1);
+        expect(Math.abs(r.y + r.h / 2 - h / 2)).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("stays inside a landscape photo, which runs out of width first", () => {
+    for (const r of photoCardRects(1200, 500)) {
+      expect(r.x).toBeGreaterThanOrEqual(0);
+      expect(r.y).toBeGreaterThanOrEqual(0);
+      expect(r.x + r.w).toBeLessThanOrEqual(1200);
+      expect(r.y + r.h).toBeLessThanOrEqual(500);
+    }
+  });
+});
+
+describe("hashPhoto", () => {
+  const frame = (w: number, h: number) => {
+    const rgba = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0, i = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1, i += 4) {
+        const v = Math.round((x / w) * 200 + (y / h) * 55);
+        rgba[i] = v; rgba[i + 1] = 255 - v; rgba[i + 2] = (v * 3) % 255; rgba[i + 3] = 255;
+      }
+    }
+    return rgba;
+  };
+
+  it("produces a probe for the whole frame and for each search rectangle", () => {
+    const probes = hashPhoto(frame(400, 560), 400, 560);
+    expect(probes.length).toBe(OFFSET_BOXES.length + photoCardRects(400, 560).length);
+    for (const p of probes) expect(p).toHaveLength((HASH_SIZE * HASH_SIZE) / 4);
+  });
+
+  it("drops rather than emits an unusable probe", () => {
+    // A frame too small to sample must not contribute an empty string that the
+    // matcher would then have to guard against.
+    for (const p of hashPhoto(frame(40, 56), 40, 56)) expect(p).not.toBe("");
   });
 });

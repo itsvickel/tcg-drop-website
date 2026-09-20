@@ -648,3 +648,18 @@
 
 .sheetPrimary:hover { filter: brightness(1.14); }
 .sheetSecondary:hover { border-color: #8b949e; }
+
+/* The photo picker's own control is hidden; the styled button triggers it.
+   Not display:none — a hidden input is still focusable in some browsers and
+   click() must work, so it is removed from layout without being disabled. */
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

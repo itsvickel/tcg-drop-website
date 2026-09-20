@@ -315,6 +315,74 @@ export const OFFSET_BOXES: readonly (readonly [number, number, number, number])[
   [0.1, 0.12, 0.9, 0.56],
 ];
 
+/**
+ * A trading card's aspect ratio, 63mm x 88mm. Close enough to 5:7 for framing.
+ */
+const CARD_ASPECT = 63 / 88;
+
+/**
+ * How much of a photo the card might occupy.
+ *
+ * The live camera crops to the on-screen guide, so the card fills the frame and
+ * one rectangle is enough. A photo does not: there is a desk around it. That
+ * difference is total rather than gradual — measured on real cards, a card
+ * filling 85% of a photo matched 0 times out of 18 against the whole frame and
+ * 18 out of 18 when a few centred card-shaped rectangles were tried instead.
+ *
+ * The ladder stops at 0.6 because it stops working there: at 55% fill this
+ * recovers 7 of 18, and going wider mostly adds chances to land near the wrong
+ * card. A card smaller than that in frame is a cropping problem, and the UI
+ * says so rather than pretending.
+ */
+const PHOTO_SCALES = [1, 0.92, 0.84, 0.76, 0.68, 0.6];
+
+/** Centred, card-shaped rectangles to look for a card in, largest first. */
+export function photoCardRects(
+  width: number,
+  height: number
+): { x: number; y: number; w: number; h: number }[] {
+  const out: { x: number; y: number; w: number; h: number }[] = [];
+  for (const scale of PHOTO_SCALES) {
+    let h = height * scale;
+    let w = h * CARD_ASPECT;
+    // A landscape photo runs out of width before height.
+    if (w > width * scale) {
+      w = width * scale;
+      h = w / CARD_ASPECT;
+    }
+    out.push({
+      x: Math.floor((width - w) / 2),
+      y: Math.floor((height - h) / 2),
+      w: Math.floor(w),
+      h: Math.floor(h),
+    });
+  }
+  return out;
+}
+
+/**
+ * Fingerprint a still photo, which is not cropped to the card.
+ *
+ * The full frame gets the usual offset crops, since a tightly cropped image or
+ * a screenshot of a card is the common case and deserves the best treatment.
+ * The smaller rectangles get the plain art window only — they are a search for
+ * where the card is, and multiplying them by six offsets would mostly buy
+ * chances to land near the wrong card.
+ */
+export function hashPhoto(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number
+): string[] {
+  const grey = toLuma(rgba, width, height);
+  const full = { x: 0, y: 0, w: width, h: height };
+  const out = OFFSET_BOXES.map((box) => hashLumaRegion(grey, width, height, full, box));
+  for (const rect of photoCardRects(width, height)) {
+    out.push(hashLumaRegion(grey, width, height, rect));
+  }
+  return out.filter(Boolean);
+}
+
 const POPCOUNT = new Uint8Array(256);
 for (let i = 0; i < 256; i += 1) {
   POPCOUNT[i] = (i & 1) + POPCOUNT[i >> 1];
