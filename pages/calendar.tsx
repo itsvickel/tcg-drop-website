@@ -44,7 +44,9 @@ function ProductRow({ product, setDate, tcg, cta }: { product: CalendarProduct; 
     product.release_date && product.release_date !== setDate && product.release_date !== TBA_DATE
       ? product.release_date
       : null;
-  const hasPrice = typeof product.price === "number";
+  // Positive, not merely a number: the crawler writes 0 when it could not read
+  // a price, and treating that as a price advertises free sealed product.
+  const hasPrice = typeof product.price === "number" && product.price > 0;
 
   return (
     <li className={styles.productRow}>

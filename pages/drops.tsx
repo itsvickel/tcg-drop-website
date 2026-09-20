@@ -57,7 +57,12 @@ function RetailerRow({ listing }: { listing: Listing }) {
       >
         {listing.retailer}
       </a>
-      {typeof listing.price === "number" && (
+      {/* Positive, not merely a number. The crawler writes 0.0 when it could
+          not read a price — which happens on sold-out listings, where the page
+          often stops showing one — and `typeof === "number"` let that through
+          as "$0.00". Four of the eleven listings on this page were advertising
+          free sealed product. A missing price should look missing. */}
+      {typeof listing.price === "number" && listing.price > 0 && (
         <span className={styles.retailerPrice}>
           ${listing.price.toFixed(2)}
           {listing.currency && listing.currency !== "CAD" ? ` ${listing.currency}` : ""}
