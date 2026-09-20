@@ -216,6 +216,15 @@ describe("buildLookupQuery", () => {
     expect(q.has("ids")).toBe(false);
   });
 
+  it("sends no search term at all for a scan", () => {
+    // A scan's query is its fingerprints. Sending the fingerprint as `q` too
+    // left the page believing the user had searched for a hex string, so a
+    // failed lookup had the filters and Show more hunting for
+    // "f7a3f31307655377" instead of the card.
+    const q = buildLookupQuery({ tcg: "pokemon", cardHash: "8e0c0c1c2c270402" });
+    expect(q.has("q")).toBe(false);
+  });
+
   it("omits the fingerprint parameters entirely for a typed search", () => {
     const q = buildLookupQuery({ tcg: "mtg", q: "Sol Ring" });
     expect(q.has("hash")).toBe(false);

@@ -87,18 +87,24 @@ export default function ScanPage() {
       } = {}
     ) => {
       const trimmed = text.trim();
-      if (trimmed.length < 2) return;
+      // A scan carries no search term at all — its fingerprints are the query.
+      // Sending the fingerprint as `q` as well meant `submitted` held a hex
+      // string, so a failed lookup left the filters and Show more searching for
+      // "f7a3f31307655377". The card's real name is written back below once the
+      // lookup identifies it.
+      const byFingerprint = !!filters.cardHash || !!filters.tiedHashes?.length;
+      if (!byFingerprint && trimmed.length < 2) return;
       if (offset > 0) setLoadingMore(true);
       else setLoading(true);
       setError(null);
-      setSubmitted(trimmed);
+      if (!byFingerprint) setSubmitted(trimmed);
       try {
         // Filters go to the server so they apply across every printing, not
         // just the twelve already on screen. Filtering the loaded page would
         // quietly mean "of the twelve you happen to have".
         const params = buildLookupQuery({
           tcg: game,
-          q: trimmed,
+          q: byFingerprint ? "" : trimmed,
           offset,
           sort: filters.sort,
           setId: filters.setId,
@@ -176,7 +182,7 @@ export default function ScanPage() {
       // registered, and waiting for the network to say so is the problem.
       setScanSheet(true);
       setQuery(byArt ? "" : text);
-      void runLookup(text, tcg, 0, {
+      void runLookup(byArt ? "" : text, tcg, 0, {
         setId: byArt ? "" : setId,
         sort,
         stocked: stockedOnly,

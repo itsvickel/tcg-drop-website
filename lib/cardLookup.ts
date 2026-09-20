@@ -406,10 +406,13 @@ export type LookupQuery = {
 export function buildLookupQuery(query: LookupQuery): URLSearchParams {
   const params = new URLSearchParams({
     tcg: query.tcg,
-    q: query.q ?? "",
     offset: String(query.offset ?? 0),
     sort: query.sort || "newest",
   });
+  // Omitted rather than sent empty when a scan supplies the fingerprints: an
+  // empty q is not a search, and including it only invites something
+  // downstream to treat "" as one.
+  if (query.q) params.set("q", query.q);
   if (query.setId) params.set("set", query.setId);
   if (query.stocked) params.set("stocked", "1");
   // Fingerprints, not card ids. The browser never downloads the ids — they
