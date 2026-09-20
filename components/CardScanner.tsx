@@ -129,6 +129,17 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
   const [quality, setQuality] = useState<string | null>(null);
   const [vocabularyReady, setVocabularyReady] = useState(false);
   const [artCount, setArtCount] = useState(0);
+  /**
+   * Whether the fingerprint table has arrived.
+   *
+   * Distinguished from "arrived and empty" because the two call for opposite
+   * messages and the UI was giving the wrong one: while the table was still
+   * downloading — a few hundred kilobytes, and longer than it sounds on mobile
+   * data — it told the user card pictures were unavailable for this game and
+   * that it was falling back to reading titles. That is a statement about a
+   * permanent limitation, made during a temporary one.
+   */
+  const [artState, setArtState] = useState<"loading" | "ready" | "unavailable">("loading");
   const [torchOn, setTorchOn] = useState(false);
   const [torchable, setTorchable] = useState(false);
   const [photoNote, setPhotoNote] = useState<string | null>(null);
@@ -568,10 +579,11 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
         artRef.current = parseHashTable(packed);
         setVocabularyReady((payload.names?.length ?? 0) > 0);
         setArtCount(artRef.current.count);
+        setArtState(artRef.current.count > 0 ? "ready" : "unavailable");
       } catch {
-        // Offline or the index is not published for this game. The scanner
-        // still reads; it just cannot reject a non-card, which is how it
-        // behaved before the vocabulary existed.
+        // Offline, or nothing published for this game yet. The scanner still
+        // reads titles; it just cannot match pictures or reject a non-card.
+        if (!cancelled) setArtState("unavailable");
       }
     })();
     return () => {
@@ -711,11 +723,29 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
           "Hold the card inside the frame — it reads continuously, nothing to press."}
       </p>
 
-      {phase === "scanning" && artCount === 0 && (
+      {phase === "scanning" && artState === "loading" && (
+        <p className={styles.privacy}>
+          Loading card pictures — matching by artwork starts as soon as they
+          arrive. Reading the title until then.
+        </p>
+      )}
+
+      {/* Quiet, but worth saying once: the complaint that started this work was
+          not being able to tell whether the scanner was doing anything. A
+          catalogue size is concrete evidence that the good path is live, in a
+          way that "scanning…" is not. */}
+      {phase === "scanning" && artState === "ready" && (
+        <p className={styles.privacy}>
+          Matching against {artCount.toLocaleString()} card pictures — hold the
+          card still and it will find it.
+        </p>
+      )}
+
+      {phase === "scanning" && artState === "unavailable" && (
         <p className={styles.privacy}>
           {vocabularyReady
             ? "Card pictures unavailable for this game, so this is reading the title. Hold steady and keep glare off the name."
-            : "Card list unavailable, so readings cannot be checked against real card names — expect more misreads until it loads."}
+            : "Card list unavailable, so readings cannot be checked against real card names — expect more misreads."}
         </p>
       )}
 
