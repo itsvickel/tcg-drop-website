@@ -7,6 +7,7 @@
  * handles clean text would work in a test and fail on every real photograph.
  */
 import {
+  buildLookupQuery,
   listingMatchesCard,
   normaliseCardName,
   numberVariants,
@@ -184,5 +185,65 @@ describe("listingMatchesCard", () => {
   it("handles empty input", () => {
     expect(listingMatchesCard("", "Charizard", null)).toBe(false);
     expect(listingMatchesCard("Charizard", "", null)).toBe(false);
+  });
+});
+
+describe("buildLookupQuery", () => {
+  /**
+   * This exists because of a bug it would have caught.
+   *
+   * When the fingerprint table dropped card ids, the scanner started matching
+   * pictures and handing back a fingerprint — but the page still sent it as
+   * `id`, the parameter for a catalogue id. TypeScript was happy, because a
+   * fingerprint and a card id are both strings. Every unit test passed. Every
+   * scan came back empty, and the only way to see why was to read the actual
+   * request the page made.
+   *
+   * So the parameter names are pinned here. They are a contract with
+   * /api/card-lookup, and a contract nothing checks is a contract that drifts.
+   */
+  const get = (q: URLSearchParams) => Object.fromEntries(q.entries());
+
+  it("sends a matched fingerprint as `hash`, never as `id`", () => {
+    const q = buildLookupQuery({ tcg: "pokemon", cardHash: "8e0c0c1c2c270402" });
+    expect(get(q).hash).toBe("8e0c0c1c2c270402");
+    expect(q.has("id")).toBe(false);
+  });
+
+  it("sends tied fingerprints as a comma-separated `hashes`", () => {
+    const q = buildLookupQuery({ tcg: "pokemon", tiedHashes: ["aaaa", "bbbb"] });
+    expect(get(q).hashes).toBe("aaaa,bbbb");
+    expect(q.has("ids")).toBe(false);
+  });
+
+  it("omits the fingerprint parameters entirely for a typed search", () => {
+    const q = buildLookupQuery({ tcg: "mtg", q: "Sol Ring" });
+    expect(q.has("hash")).toBe(false);
+    expect(q.has("hashes")).toBe(false);
+    expect(get(q).q).toBe("Sol Ring");
+  });
+
+  it("always names the game, the offset and the sort", () => {
+    // The API reads all three unconditionally; leaving one out silently
+    // changes which page of which ordering comes back.
+    const q = buildLookupQuery({ tcg: "mtg" });
+    expect(get(q)).toMatchObject({ tcg: "mtg", offset: "0", sort: "newest" });
+  });
+
+  it("passes the filters through under the names the API reads", () => {
+    const q = buildLookupQuery({
+      tcg: "pokemon", q: "Pikachu", offset: 12, sort: "oldest",
+      setId: "sv08.5", stocked: true,
+    });
+    expect(get(q)).toEqual({
+      tcg: "pokemon", q: "Pikachu", offset: "12", sort: "oldest",
+      set: "sv08.5", stocked: "1",
+    });
+  });
+
+  it("leaves out filters that are not set, rather than sending empties", () => {
+    const q = buildLookupQuery({ tcg: "pokemon", q: "Pikachu", stocked: false });
+    expect(q.has("set")).toBe(false);
+    expect(q.has("stocked")).toBe(false);
   });
 });

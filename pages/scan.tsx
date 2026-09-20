@@ -7,6 +7,7 @@ import GameTabBar from "../components/GameTabBar";
 import GameSubNav from "../components/GameSubNav";
 import Footer from "../components/Footer";
 import { providerCredit } from "../lib/cardProviders";
+import { buildLookupQuery } from "../lib/cardLookup";
 import type { CardMatch, LookupResponse } from "../lib/cardLookup";
 import { TCG_CONFIGS, type TcgSlug } from "../lib/tcg.config";
 import { SITE_URL } from "../lib/siteUrl";
@@ -79,7 +80,10 @@ export default function ScanPage() {
       offset = 0,
       filters: {
         setId?: string; sort?: string; stocked?: boolean;
-        cardId?: string; tiedIds?: string[];
+        /** A fingerprint the scanner matched outright. */
+        cardHash?: string;
+        /** Fingerprints it could not choose between — one artwork, several printings. */
+        tiedHashes?: string[];
       } = {}
     ) => {
       const trimmed = text.trim();
@@ -92,20 +96,16 @@ export default function ScanPage() {
         // Filters go to the server so they apply across every printing, not
         // just the twelve already on screen. Filtering the loaded page would
         // quietly mean "of the twelve you happen to have".
-        const params = new URLSearchParams({
+        const params = buildLookupQuery({
           tcg: game,
           q: trimmed,
-          offset: String(offset),
-          sort: filters.sort ?? "newest",
+          offset,
+          sort: filters.sort,
+          setId: filters.setId,
+          stocked: filters.stocked,
+          cardHash: filters.cardHash,
+          tiedHashes: filters.tiedHashes,
         });
-        if (filters.setId) params.set("set", filters.setId);
-        if (filters.stocked) params.set("stocked", "1");
-        // An exact printing recognised by its artwork. The server skips
-        // searching entirely when this is present.
-        if (filters.cardId) params.set("id", filters.cardId);
-        // The artwork was recognised but the printing was not — a reprint. The
-        // server resolves these to one card name and searches it.
-        if (filters.tiedIds?.length) params.set("ids", filters.tiedIds.join(","));
         const res = await fetch(`/api/card-lookup?${params}`);
         const payload = await res.json();
         if (!res.ok) {
@@ -128,7 +128,7 @@ export default function ScanPage() {
           // every one of them would otherwise go hunting for "sv08.5-009" and
           // come back with nothing.
           const identified = next.matches[0]?.name;
-          if ((filters.cardId || filters.tiedIds?.length) && identified) {
+          if ((filters.cardHash || filters.tiedHashes?.length) && identified) {
             setQuery(identified);
             setSubmitted(identified);
           }
@@ -160,18 +160,18 @@ export default function ScanPage() {
   );
 
   const handleScan = useCallback(
-    (text: string, cardId?: string, tiedIds?: string[]) => {
+    (text: string, cardHash?: string, tiedHashes?: string[]) => {
       // The camera stays open. The scanner reads continuously, so closing it on
       // the first hit would end the session at the exact moment somebody wants
       // to check the next card — and if the reading was wrong, it would also
       // have taken away the only way to try again.
       //
-      // A card recognised by artwork carries its id, and the set filter is
-      // dropped for it: the picture already named one printing, and filtering
-      // that to a set could only ever hide it. The box is left empty rather
-      // than filled with the id; `runLookup` puts the card's real name there
-      // once the lookup comes back.
-      const byArt = !!cardId || !!tiedIds?.length;
+      // A card recognised by artwork arrives as a fingerprint, and the set
+      // filter is dropped for it: the picture already named the printing, and
+      // filtering that to a set could only ever hide it. The box is left empty
+      // rather than filled with a fingerprint; `runLookup` puts the card's real
+      // name there once the lookup comes back.
+      const byArt = !!cardHash || !!tiedHashes?.length;
       // Opened before the lookup, not after: the point is to confirm the scan
       // registered, and waiting for the network to say so is the problem.
       setScanSheet(true);
@@ -180,8 +180,8 @@ export default function ScanPage() {
         setId: byArt ? "" : setId,
         sort,
         stocked: stockedOnly,
-        cardId,
-        tiedIds,
+        cardHash,
+        tiedHashes,
       });
     },
     [runLookup, setId, sort, stockedOnly, tcg]

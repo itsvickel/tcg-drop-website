@@ -376,3 +376,46 @@ export function listingMatchesCard(
   }
   return true;
 }
+
+
+/**
+ * The query the page sends to /api/card-lookup.
+ *
+ * Extracted from the page so the contract between the two can be tested. It is
+ * the sort of thing that looks too small to be worth a function until it goes
+ * wrong: the fingerprint wire format landed with the scanner still sending its
+ * match as `id`, which TypeScript could not catch because a fingerprint and a
+ * card id are both strings. Everything still compiled, every unit test passed,
+ * and every scan came back empty. It was only visible by watching the actual
+ * request the page made.
+ */
+export type LookupQuery = {
+  tcg: string;
+  /** The search term. Empty is allowed when a fingerprint is supplied. */
+  q?: string;
+  offset?: number;
+  sort?: string;
+  setId?: string;
+  stocked?: boolean;
+  /** A fingerprint the scanner matched outright. */
+  cardHash?: string;
+  /** Fingerprints it could not choose between — one artwork, several printings. */
+  tiedHashes?: string[];
+};
+
+export function buildLookupQuery(query: LookupQuery): URLSearchParams {
+  const params = new URLSearchParams({
+    tcg: query.tcg,
+    q: query.q ?? "",
+    offset: String(query.offset ?? 0),
+    sort: query.sort || "newest",
+  });
+  if (query.setId) params.set("set", query.setId);
+  if (query.stocked) params.set("stocked", "1");
+  // Fingerprints, not card ids. The browser never downloads the ids — they
+  // were three quarters of the fingerprint table — so it echoes what it
+  // matched and the server maps it back to a card.
+  if (query.cardHash) params.set("hash", query.cardHash);
+  if (query.tiedHashes?.length) params.set("hashes", query.tiedHashes.join(","));
+  return params;
+}
