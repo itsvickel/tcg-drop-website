@@ -16,6 +16,7 @@ import {
   hamming,
   hashCardRegion,
   HASH_SIZE,
+  artOutcome,
   isArtConfident,
   matchArt,
   MAX_ART_DISTANCE,
@@ -223,22 +224,59 @@ describe("matchArt", () => {
   });
 });
 
+describe("artOutcome", () => {
+  it("pins a close, unambiguous match", () => {
+    expect(artOutcome({ id: "x", distance: 2, margin: 14, ties: ["x"] })).toBe("pinned");
+  });
+
+  it("calls two printings of one artwork ambiguous, not a failure", () => {
+    // The case this was built for. A real Applin matched its own reference at
+    // 1 bit, the Stellar Crown printing at 2, and everything else at 16 — a
+    // perfect read of the artwork that the margin rule was throwing away. The
+    // right answer is to search the card by name, not to give up and try OCR.
+    expect(artOutcome({ id: "a", distance: 1, margin: 1, ties: ["a", "b"] })).toBe("ambiguous");
+  });
+
+  it("gives up when nothing is close enough", () => {
+    expect(artOutcome({ id: "x", distance: 20, margin: 9, ties: ["x"] })).toBe("none");
+    expect(artOutcome(null)).toBe("none");
+  });
+
+  it("gives up on a narrow margin with nothing to expand to", () => {
+    // A thin margin and only one candidate is a doubtful match, not a reprint.
+    expect(artOutcome({ id: "x", distance: 8, margin: 1, ties: ["x"] })).toBe("none");
+  });
+});
+
+describe("matchArt ties", () => {
+  it("reports every card within the margin of the winner", () => {
+    const table = parseHashTable({
+      size: HASH_SIZE,
+      ids: ["a", "b", "far"],
+      packed: "0000000000000000" + "0000000000000003" + "ffffffffffffffff",
+    });
+    const match = matchArt(table, ["0000000000000000"]);
+    expect(match!.ties.sort()).toEqual(["a", "b"]);
+    expect(match!.ties).not.toContain("far");
+  });
+});
+
 describe("isArtConfident", () => {
   it("accepts a close, unambiguous match", () => {
-    expect(isArtConfident({ id: "x", distance: 4, margin: 20 })).toBe(true);
+    expect(isArtConfident({ id: "x", distance: 4, margin: 20, ties: ["x"] })).toBe(true);
   });
 
   it("refuses a distant match", () => {
     // Different cards measured 19 bits apart at the closest, so anything past
     // the threshold is more likely a coincidence than a card.
-    expect(isArtConfident({ id: "x", distance: 18, margin: 20 })).toBe(false);
+    expect(isArtConfident({ id: "x", distance: 18, margin: 20, ties: ["x"] })).toBe(false);
     expect(MAX_ART_DISTANCE).toBeLessThan(19);
   });
 
   it("refuses two printings that share artwork", () => {
     // Close to both, so the picture cannot choose between them. The collector
     // number decides that, not the art.
-    expect(isArtConfident({ id: "x", distance: 3, margin: 1 })).toBe(false);
+    expect(isArtConfident({ id: "x", distance: 3, margin: 1, ties: ["x", "y"] })).toBe(false);
   });
 
   it("refuses nothing at all", () => {

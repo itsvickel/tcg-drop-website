@@ -330,6 +330,17 @@ export type ArtMatch = {
   distance: number;
   /** Extra bits to the next-closest *different* card. */
   margin: number;
+  /**
+   * Every card within the margin of the winner, including it.
+   *
+   * More than one means the picture cannot choose, and that is usually not a
+   * failure — it is the same artwork reprinted. Measured on the real table, an
+   * Applin photographed from its own reference sits 1 bit from the Prismatic
+   * Evolutions printing and 2 from the Stellar Crown one, with the next card 16
+   * bits away. The artwork is certain; only the printing is open. Declining
+   * there and falling back to reading the title threw away a perfect match.
+   */
+  ties: string[];
 };
 
 /**
@@ -343,7 +354,27 @@ export type ArtMatch = {
  * guessing. That is what the collector number and the name are for.
  */
 export const MAX_ART_DISTANCE = 10;
-export const MIN_ART_MARGIN = 4;
+/**
+ * Bits of daylight required before one printing is named outright.
+ *
+ * Swept against the full 21,937-card table with 160 real degraded frames. At 4
+ * an over-exposed Electrike was pinned to the wrong printing — right card, 
+ * wrong set, and therefore the wrong price shown with full confidence. At 5 
+ * that disappears and the usable total does not move, because the cases it 
+ * stops pinning become ambiguous rather than declined, and an ambiguous match 
+ * still shows the user every printing of the card in their hand.
+ *
+ *   margin  usable   wrong
+ *        3   150/160     1
+ *        4   145/160     1
+ *        5   145/160     0   <- here
+ *        6   141/160     0
+ *
+ * Going further only costs precision. Below 5 it buys a little reach and pays
+ * for it with a confidently wrong price, which is the one outcome this whole
+ * design is built to avoid.
+ */
+export const MIN_ART_MARGIN = 5;
 
 /**
  * The closest card to any of a frame's candidate fingerprints.
@@ -402,11 +433,55 @@ export function matchArt(table: HashTable, queries: string[]): ArtMatch | null {
   }
 
   if (bestIndex < 0) return null;
+
+  // Second pass for the near-ties. Collected separately rather than during the
+  // search because the winner is not known until the end, and a card is only a
+  // tie relative to it.
+  const ties: string[] = [];
+  const cutoff = best + MIN_ART_MARGIN;
+  for (let card = 0; card < table.ids.length && ties.length < MAX_TIES; card += 1) {
+    const offset = card * HASH_WORDS;
+    let distance = Number.MAX_SAFE_INTEGER;
+    for (let p = 0; p < probeCount; p += 1) {
+      const base = p * HASH_WORDS;
+      let d = 0;
+      for (let w = 0; w < HASH_WORDS; w += 1) {
+        d += popcount32(probes[base + w] ^ words[offset + w]);
+      }
+      if (d < distance) distance = d;
+    }
+    if (distance <= cutoff) ties.push(table.ids[card]);
+  }
+
   return {
     id: table.ids[bestIndex],
     distance: best,
     margin: second === Number.MAX_SAFE_INTEGER ? HASH_SIZE * HASH_SIZE : second - best,
+    ties,
   };
+}
+
+/** Enough to name a reprint family; past this the picture is telling us nothing. */
+const MAX_TIES = 8;
+
+/**
+ * What a picture match is good for.
+ *
+ *   "pinned"    — one card, name the printing outright.
+ *   "ambiguous" — the artwork is certain, the printing is not. Search the card
+ *                 by name and let the collector number or the user decide.
+ *   "none"      — nothing close enough; read the title instead.
+ *
+ * The middle case is the one that matters and the one the first version got
+ * wrong. It treated a low margin as failure, which is right when it means "this
+ * might be the wrong card" and wrong when it means "this is definitely this
+ * artwork, printed twice". Distance separates those: a two-bit match with a
+ * one-bit margin is not a doubtful match, it is a reprint.
+ */
+export function artOutcome(match: ArtMatch | null): "pinned" | "ambiguous" | "none" {
+  if (!match || match.distance > MAX_ART_DISTANCE) return "none";
+  if (match.margin >= MIN_ART_MARGIN) return "pinned";
+  return match.ties.length > 1 ? "ambiguous" : "none";
 }
 
 /** Whether a picture match is strong enough to name a card on its own. */

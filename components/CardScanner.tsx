@@ -3,9 +3,9 @@ import { parseScan, scanToQuery } from "../lib/cardLookup";
 import { gradeFrame, stretchRange, type FrameGrade } from "../lib/frameQuality";
 import { bestMatch, isConfident, looksLikeName } from "../lib/fuzzyName";
 import {
+  artOutcome,
   EMPTY_HASH_TABLE,
   hashCardRegions,
-  isArtConfident,
   matchArt,
   parseHashTable,
   type HashTable,
@@ -75,7 +75,7 @@ type Props = {
    * identified an exact printing, which is a stronger answer than a name and
    * number: it names one card rather than a search that may return dozens.
    */
-  onRead: (query: string, cardId?: string) => void;
+  onRead: (query: string, cardId?: string, tiedIds?: string[]) => void;
   onClose: () => void;
 };
 
@@ -405,15 +405,30 @@ export default function CardScanner({ tcg, onRead, onClose }: Props) {
       let key = "";
       let query = "";
       let cardId: string | undefined;
+      let tiedIds: string[] | undefined;
 
       const art = matchByArt();
-      if (isArtConfident(art)) {
+      const outcome = artOutcome(art);
+
+      if (outcome === "pinned") {
         // The picture named one exact printing. That is a better answer than a
         // name and number, which still has to be searched for.
         cardId = art!.id;
         key = `art:${art!.id}`;
         query = art!.id;
         setReading("Matched the picture — looking it up…");
+      } else if (outcome === "ambiguous") {
+        // The artwork is certain and the printing is not, which is what a
+        // reprint looks like: a real Applin matches its own reference at 1 bit
+        // and the Stellar Crown printing at 2, with the next card 16 bits away.
+        // Treating that as a failure — which is what this did — threw away a
+        // perfect read and fell back to OCR. The server turns these candidates
+        // into a name search, so the user gets every printing of the card in
+        // their hand and the collector number settles the rest.
+        tiedIds = art!.ties;
+        key = `ties:${tiedIds.join(",")}`;
+        query = art!.id;
+        setReading("Matched the picture — finding the printing…");
       } else {
         try {
           query = await readOnce();
@@ -433,7 +448,7 @@ export default function CardScanner({ tcg, onRead, onClose }: Props) {
         if (agreeing >= CONSENSUS && key !== lastEmittedRef.current) {
           lastEmittedRef.current = key;
           recentRef.current = [];
-          onReadRef.current(query, cardId);
+          onReadRef.current(query, cardId, tiedIds);
         }
       }
 

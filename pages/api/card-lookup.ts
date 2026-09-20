@@ -419,6 +419,38 @@ async function resolveById(
   return { found: [], total: 0, correctedTo: null, sets: [] };
 }
 
+/**
+ * The one card name a set of tied artwork matches all refer to, or null.
+ *
+ * The scanner sends these when the picture was recognised but the printing was
+ * not — which for a reprinted card is the normal outcome, not a failure. If
+ * every candidate is the same card, searching that name shows the user all of
+ * its printings and lets the collector number settle which one they are
+ * holding.
+ *
+ * Null when the candidates disagree. That means two genuinely different cards
+ * hashed close together, and there is nothing honest to show; the caller falls
+ * back to reading the title.
+ */
+async function sharedName(config: TcgConfig, ids: string[]): Promise<string | null> {
+  if (ids.length === 0) return null;
+  let index;
+  try {
+    index = await loadCardIndex(config);
+  } catch {
+    return null;
+  }
+  const byId = new Map(index.cards.map((c) => [c.id, c.name]));
+  let agreed: string | null = null;
+  for (const id of ids) {
+    const name = byId.get(id);
+    if (!name) continue;
+    if (agreed === null) agreed = name;
+    else if (normaliseIndexName(name) !== normaliseIndexName(agreed)) return null;
+  }
+  return agreed;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<LookupResponse | { error: string }>
@@ -440,7 +472,23 @@ export default async function handler(
   }
 
   const raw = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 120) : "";
-  if (raw.length < 2) {
+  // Set when the scanner recognised the artwork outright. It names one
+  // printing, so the search is skipped entirely.
+  const cardId = typeof req.query.id === "string" ? req.query.id.slice(0, 60) : null;
+  /**
+   * Set when the artwork was recognised but the printing was not.
+   *
+   * Reprints share art, so a picture can be a perfect match and still leave two
+   * or three candidates. Those are resolved to a card name here and searched
+   * normally, which shows the user every printing and lets the collector number
+   * settle it — far better than the old behaviour, which called this a failure
+   * and fell back to reading the title.
+   */
+  const tiedIds = typeof req.query.ids === "string"
+    ? req.query.ids.split(",").map((v) => v.trim().slice(0, 60)).filter(Boolean).slice(0, 8)
+    : [];
+
+  if (raw.length < 2 && !cardId && tiedIds.length === 0) {
     return res.status(400).json({ error: "Search for at least two characters." });
   }
 
@@ -453,12 +501,7 @@ export default async function handler(
   // listings join, because whether we have one is not something the card
   // catalogue knows.
   const inStockOnly = req.query.stocked === "1";
-  // Set when the scanner recognised the artwork. It names one printing, so the
-  // search is skipped entirely — matching a picture is a stronger answer than
-  // a name, which may belong to two hundred cards.
-  const cardId = typeof req.query.id === "string" ? req.query.id.slice(0, 60) : null;
-
-  const cacheKey = `${config.slug}:${cardId ?? raw.toLowerCase()}:${offset}:${setId ?? ""}:${sort}:${inStockOnly}`;
+  const cacheKey = `${config.slug}:${cardId ?? tiedIds.join("+") ?? raw.toLowerCase()}:${offset}:${setId ?? ""}:${sort}:${inStockOnly}`;
   const hit = cache.get(cacheKey);
   if (hit && hit.expiresAt > Date.now()) {
     res.setHeader("X-Cache", "hit");
@@ -467,11 +510,17 @@ export default async function handler(
 
   const { name, number, setTotal } = parseQuery(raw);
 
+  // A tied artwork match is turned into an ordinary name search, so the user
+  // sees every printing of the card they are holding rather than nothing.
+  const tiedName = cardId ? null : await sharedName(config, tiedIds);
+
   try {
     const fx = await usdToCad();
     const { found: resolved, total, correctedTo, sets } = cardId
       ? await resolveById(config, cardId, fx)
-      : await resolveMatches(config, name, number, setTotal, fx, offset, { setId, sort });
+      : await resolveMatches(
+          config, tiedName ?? name, number, setTotal, fx, offset, { setId, sort }
+        );
 
     // Applied here rather than inside each resolver, because there are three
     // ways a card can arrive — by id, from the index, or from the provider

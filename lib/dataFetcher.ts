@@ -30,6 +30,26 @@
  */
 const FETCH_TIMEOUT_MS = 15_000;
 
+/**
+ * A checkout of the data repo to read from instead of the network, in
+ * development only.
+ *
+ * Without this the site is close to unusable locally. The GitHub contents API
+ * serves these files slowly from some networks — measured here at 45 seconds
+ * for the 287KB card index and 17 for the prices — so every page fell back or
+ * timed out, and the scanner in particular came up with an empty fingerprint
+ * table and silently degraded to reading titles. That made the one feature that
+ * most needs hands-on testing the one feature that could not be tested.
+ *
+ * Set LOCAL_DATA_DIR to point at a tcg-drop-alert checkout, or leave it unset
+ * and the sibling directory is used when it exists. Never consulted in
+ * production, where Vercel Blob serves these in milliseconds.
+ */
+const LOCAL_DATA_DIR =
+  process.env.NODE_ENV === "production"
+    ? ""
+    : process.env.LOCAL_DATA_DIR ?? "../tcg-drop-alert";
+
 const BLOB_BASE_URL = process.env.BLOB_BASE_URL ?? "";
 const GITHUB_REPO   = process.env.GITHUB_REPO ?? "";
 const GITHUB_TOKEN  = process.env.GITHUB_TOKEN ?? "";
@@ -43,6 +63,33 @@ async function fetchFromBlob<T>(blobPath: string): Promise<T> {
   } as RequestInit);
   if (!res.ok) throw new Error(`Blob fetch failed: ${res.status} for ${blobPath}`);
   return res.json() as Promise<T>;
+}
+
+/**
+ * The local file for a data path, if we are in development and it exists.
+ *
+ * Deliberately synchronous and cheap: it runs before every fetch, and an
+ * existsSync on a path that is usually absent costs nothing worth measuring.
+ */
+function localDataFile(filePath: string): string | null {
+  if (!LOCAL_DATA_DIR) return null;
+  try {
+    // Required lazily so the bundler never pulls node:fs into a client build.
+    /* eslint-disable @typescript-eslint/no-require-imports */
+    const fs = require("fs") as typeof import("fs");
+    const path = require("path") as typeof import("path");
+    /* eslint-enable @typescript-eslint/no-require-imports */
+    const full = path.resolve(process.cwd(), LOCAL_DATA_DIR, filePath);
+    return fs.existsSync(full) ? full : null;
+  } catch {
+    return null;
+  }
+}
+
+function readLocal(file: string): Buffer {
+  /* eslint-disable-next-line @typescript-eslint/no-require-imports */
+  const fs = require("fs") as typeof import("fs");
+  return fs.readFileSync(file);
 }
 
 async function fetchFromGitHub<T>(filePath: string): Promise<T> {
@@ -77,6 +124,15 @@ export async function fetchGameDataWithSource<T>(
 ): Promise<{ data: T; source: DataSource }> {
   const filePath = gameFolder ? `${gameFolder}/${fileName}` : fileName;
 
+  const local = localDataFile(filePath);
+  if (local) {
+    const raw = readLocal(local);
+    const text = filePath.endsWith(".gz")
+      ? (require("zlib") as typeof import("zlib")).gunzipSync(raw).toString("utf-8")
+      : raw.toString("utf-8");
+    return { data: JSON.parse(text) as T, source: "github" };
+  }
+
   if (BLOB_BASE_URL) {
     try {
       return { data: await fetchFromBlob<T>(filePath), source: "blob" };
@@ -110,6 +166,9 @@ export async function fetchGameBytes(
   fileName: string
 ): Promise<Buffer> {
   const filePath = gameFolder ? `${gameFolder}/${fileName}` : fileName;
+
+  const local = localDataFile(filePath);
+  if (local) return readLocal(local);
 
   if (BLOB_BASE_URL) {
     try {
