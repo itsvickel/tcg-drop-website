@@ -63,6 +63,15 @@ export default function ScanPage() {
   const [scanSheet, setScanSheet] = useState(false);
   /** Incremented on "Scan another", to let the scanner re-read the same card. */
   const [rescanKey, setRescanKey] = useState(0);
+  /**
+   * Whether the last scan recognised the artwork but not the printing.
+   *
+   * The sheet has to say so. A reprint scan legitimately cannot tell which of
+   * a dozen printings is in your hand, and leading with the first one as though
+   * it were the answer puts a single confident price on a card whose printings
+   * can differ tenfold — the exact mistake the matcher refused to make.
+   */
+  const [scanAmbiguous, setScanAmbiguous] = useState(false);
   const [setId, setSetId] = useState("");
   const [sort, setSort] = useState("newest");
   const [stockedOnly, setStockedOnly] = useState(false);
@@ -181,6 +190,7 @@ export default function ScanPage() {
       // Opened before the lookup, not after: the point is to confirm the scan
       // registered, and waiting for the network to say so is the problem.
       setScanSheet(true);
+      setScanAmbiguous(!!tiedHashes?.length);
       setQuery(byArt ? "" : text);
       void runLookup(byArt ? "" : text, tcg, 0, {
         setId: byArt ? "" : setId,
@@ -309,6 +319,7 @@ export default function ScanPage() {
             loading={loading}
             error={error}
             result={result}
+            ambiguous={scanAmbiguous}
             onScanAnother={() => {
               setScanSheet(false);
               setRescanKey((n) => n + 1);
@@ -507,18 +518,31 @@ function ScanSheet({
   loading,
   error,
   result,
+  ambiguous,
   onScanAnother,
   onDone,
 }: {
   loading: boolean;
   error: string | null;
   result: LookupResponse | null;
+  /** The artwork was recognised but the printing was not — a reprint. */
+  ambiguous: boolean;
   onScanAnother: () => void;
   onDone: () => void;
 }) {
   const matches = result?.matches ?? [];
   const top = matches[0] ?? null;
   const extra = Math.max(0, (result?.total ?? 0) - 1);
+
+  // What the printings on screen are worth, for a scan that could not pick one.
+  // A range is the honest summary; a single figure would be a guess wearing a
+  // decimal point.
+  const priced = matches
+    .map((m) => m.marketCad)
+    .filter((v): v is number => typeof v === "number");
+  const low = priced.length ? Math.min(...priced) : null;
+  const high = priced.length ? Math.max(...priced) : null;
+  const unresolved = ambiguous && extra > 0;
 
   return (
     <div className={styles.sheet} role="dialog" aria-modal="false" aria-live="polite">
@@ -550,11 +574,21 @@ function ScanSheet({
               <div className={styles.sheetBody}>
                 <h2 className={styles.sheetName}>{top.name}</h2>
                 <p className={styles.sheetMeta}>
-                  {top.setName}
-                  {top.collectorNumber ? ` · #${top.collectorNumber}` : ""}
+                  {unresolved
+                    ? `${extra + 1} printings — check the collector number`
+                    : `${top.setName}${top.collectorNumber ? ` · #${top.collectorNumber}` : ""}`}
                 </p>
                 <p className={styles.sheetPrice}>
-                  {top.marketCad !== null ? (
+                  {unresolved && low !== null && high !== null ? (
+                    <>
+                      <strong>
+                        {low === high
+                          ? `$${low.toFixed(2)} CAD`
+                          : `$${low.toFixed(2)} – $${high.toFixed(2)} CAD`}
+                      </strong>
+                      <span className={styles.sheetPriceNote}>depends on the printing</span>
+                    </>
+                  ) : top.marketCad !== null ? (
                     <>
                       <strong>${top.marketCad.toFixed(2)} CAD</strong>
                       <span className={styles.sheetPriceNote}>market reference</span>
@@ -576,8 +610,9 @@ function ScanSheet({
 
             {extra > 0 && (
               <p className={styles.sheetMore}>
-                {extra} other printing{extra === 1 ? "" : "s"} below — their prices
-                can differ by a lot.
+                {unresolved
+                  ? "Several printings share this artwork, so the picture cannot tell them apart. The number on the card decides — all of them are listed below."
+                  : `${extra} other printing${extra === 1 ? "" : "s"} below — their prices can differ by a lot.`}
               </p>
             )}
           </>
