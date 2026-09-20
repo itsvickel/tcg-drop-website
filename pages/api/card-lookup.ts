@@ -11,6 +11,7 @@ import {
 } from "../../lib/cardProviders";
 import { loadCardIndex } from "../../lib/serverCardIndex";
 import { loadCardPrices, priceFor } from "../../lib/serverCardPrices";
+import { cardsForHashes } from "../../lib/serverCardHashes";
 import {
   correctName,
   normalise as normaliseIndexName,
@@ -494,7 +495,24 @@ export default async function handler(
     ? req.query.ids.split(",").map((v) => v.trim().slice(0, 60)).filter(Boolean).slice(0, 8)
     : [];
 
-  if (raw.length < 2 && !cardId && tiedIds.length === 0) {
+  /**
+   * Fingerprints the scanner matched, in place of card ids.
+   *
+   * The browser downloads fingerprints without ids — they are three quarters of
+   * the payload and it never reads them — so it echoes the winning fingerprint
+   * and the server maps it back. `hash` is one card recognised outright,
+   * `hashes` the candidates when the artwork was certain but the printing was
+   * not.
+   */
+  const scannedHashes = [
+    ...(typeof req.query.hash === "string" ? [req.query.hash] : []),
+    ...(typeof req.query.hashes === "string" ? req.query.hashes.split(",") : []),
+  ]
+    .map((v) => v.trim().toLowerCase().slice(0, 32))
+    .filter(Boolean)
+    .slice(0, 8);
+
+  if (raw.length < 2 && !cardId && tiedIds.length === 0 && scannedHashes.length === 0) {
     return res.status(400).json({ error: "Search for at least two characters." });
   }
 
@@ -507,7 +525,8 @@ export default async function handler(
   // listings join, because whether we have one is not something the card
   // catalogue knows.
   const inStockOnly = req.query.stocked === "1";
-  const cacheKey = `${config.slug}:${cardId ?? tiedIds.join("+") ?? raw.toLowerCase()}:${offset}:${setId ?? ""}:${sort}:${inStockOnly}`;
+  const scanKey = cardId ?? [...tiedIds, ...scannedHashes].join("+") ?? "";
+  const cacheKey = `${config.slug}:${scanKey || raw.toLowerCase()}:${offset}:${setId ?? ""}:${sort}:${inStockOnly}`;
   const hit = cache.get(cacheKey);
   if (hit && hit.expiresAt > Date.now()) {
     res.setHeader("X-Cache", "hit");
@@ -516,14 +535,24 @@ export default async function handler(
 
   const { name, number, setTotal } = parseQuery(raw);
 
+  // Fingerprints first become card ids; from there a scan behaves exactly like
+  // one that arrived as ids, which keeps a single path for both.
+  const fromHashes = scannedHashes.length
+    ? await cardsForHashes(config, scannedHashes)
+    : [];
+  // One card is a pin; several mean the artwork is shared and the printing has
+  // to be settled by name and number.
+  const scannedId = cardId ?? (fromHashes.length === 1 ? fromHashes[0] : null);
+  const candidates = fromHashes.length > 1 ? fromHashes : tiedIds;
+
   // A tied artwork match is turned into an ordinary name search, so the user
   // sees every printing of the card they are holding rather than nothing.
-  const tiedName = cardId ? null : await sharedName(config, tiedIds);
+  const tiedName = scannedId ? null : await sharedName(config, candidates);
 
   try {
     const fx = await usdToCad();
-    const { found: resolved, total, correctedTo, sets } = cardId
-      ? await resolveById(config, cardId, fx)
+    const { found: resolved, total, correctedTo, sets } = scannedId
+      ? await resolveById(config, scannedId, fx)
       : await resolveMatches(
           config, tiedName ?? name, number, setTotal, fx, offset, { setId, sort }
         );

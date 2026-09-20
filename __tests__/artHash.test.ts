@@ -137,34 +137,36 @@ describe("parseHashTable", () => {
   it("refuses a table built with a different hash size", () => {
     // Matching 64-bit fingerprints against 128-bit ones would not throw; it
     // would just return confident nonsense.
-    const wrong = parseHashTable({ ids: ["a"], packed: "0".repeat(32), size: 16 });
-    expect(wrong.ids).toHaveLength(0);
+    const wrong = parseHashTable({ packed: "0".repeat(32), size: 16 });
+    expect(wrong.count).toBe(0);
   });
 
-  it("refuses a truncated table", () => {
-    expect(parseHashTable({ ids: ["a", "b"], packed: "0".repeat(16), size: HASH_SIZE }).ids)
-      .toHaveLength(0);
+  it("refuses a table that does not divide into whole fingerprints", () => {
+    // A truncated download would otherwise leave a partial fingerprint at the
+    // end and match against whatever the padding happened to be.
+    expect(parseHashTable({ packed: "0".repeat(24), size: HASH_SIZE }).count).toBe(0);
+  });
+
+  it("counts whole fingerprints", () => {
+    expect(parseHashTable({ packed: "0".repeat(48), size: HASH_SIZE }).count).toBe(3);
   });
 
   it("refuses nothing at all", () => {
-    expect(parseHashTable(null).ids).toHaveLength(0);
+    expect(parseHashTable(null).count).toBe(0);
+    expect(parseHashTable({ packed: "", size: HASH_SIZE }).count).toBe(0);
   });
 });
 
 describe("matchArt", () => {
-  const table: HashTable = parseHashTable({
-    size: HASH_SIZE,
-    ids: ["set-1", "set-2", "set-3"],
-    packed:
-      "0000000000000000" +
-      "ffffffffffffffff" +
-      // Three bits from set-1: a different printing of the same artwork.
-      "0000000000000007",
-  });
+  const A = "0000000000000000";
+  const B = "ffffffffffffffff";
+  // Three bits from A: a different printing of the same artwork.
+  const C = "0000000000000007";
+  const table: HashTable = parseHashTable({ size: HASH_SIZE, packed: A + B + C });
 
-  it("finds the closest card", () => {
+  it("finds the closest fingerprint", () => {
     const match = matchArt(table, ["0000000000000001"]);
-    expect(match?.id).toBe("set-1");
+    expect(match?.hash).toBe(A);
     expect(match?.distance).toBe(1);
   });
 
@@ -177,7 +179,7 @@ describe("matchArt", () => {
 
   it("keeps the best result across several candidate crops", () => {
     const match = matchArt(table, ["ffffffffffffff00", "0000000000000000"]);
-    expect(match?.id).toBe("set-1");
+    expect(match?.hash).toBe(A);
     expect(match?.distance).toBe(0);
   });
 
@@ -201,14 +203,12 @@ describe("matchArt", () => {
     // this test is for is catching an order-of-magnitude regression, such as
     // the matcher going back to comparing a byte at a time, and a 70x
     // environment penalty leaves plenty of room for that.
-    const ids: string[] = [];
     let packed = "";
     for (let i = 0; i < 22000; i += 1) {
-      ids.push(`card-${i}`);
       packed += (BigInt(i) * 2654435761n % (2n ** 64n)).toString(16).padStart(16, "0");
     }
-    const big = parseHashTable({ ids, packed, size: HASH_SIZE });
-    expect(big.ids).toHaveLength(22000);
+    const big = parseHashTable({ packed, size: HASH_SIZE });
+    expect(big.count).toBe(22000);
 
     const probes = [
       "0123456789abcdef", "0123456789abcdee", "0123456789abcdec",
@@ -226,7 +226,7 @@ describe("matchArt", () => {
 
 describe("artOutcome", () => {
   it("pins a close, unambiguous match", () => {
-    expect(artOutcome({ id: "x", distance: 2, margin: 14, ties: ["x"] })).toBe("pinned");
+    expect(artOutcome({ hash: "x000000000000000", distance: 2, margin: 14, ties: ["x000000000000000"] })).toBe("pinned");
   });
 
   it("calls two printings of one artwork ambiguous, not a failure", () => {
@@ -234,49 +234,57 @@ describe("artOutcome", () => {
     // 1 bit, the Stellar Crown printing at 2, and everything else at 16 — a
     // perfect read of the artwork that the margin rule was throwing away. The
     // right answer is to search the card by name, not to give up and try OCR.
-    expect(artOutcome({ id: "a", distance: 1, margin: 1, ties: ["a", "b"] })).toBe("ambiguous");
+    expect(artOutcome({ hash: "a000000000000000", distance: 1, margin: 1, ties: ["a000000000000000", "b000000000000000"] })).toBe("ambiguous");
   });
 
   it("gives up when nothing is close enough", () => {
-    expect(artOutcome({ id: "x", distance: 20, margin: 9, ties: ["x"] })).toBe("none");
+    expect(artOutcome({ hash: "x000000000000000", distance: 20, margin: 9, ties: ["x000000000000000"] })).toBe("none");
     expect(artOutcome(null)).toBe("none");
   });
 
   it("gives up on a narrow margin with nothing to expand to", () => {
     // A thin margin and only one candidate is a doubtful match, not a reprint.
-    expect(artOutcome({ id: "x", distance: 8, margin: 1, ties: ["x"] })).toBe("none");
+    expect(artOutcome({ hash: "x000000000000000", distance: 8, margin: 1, ties: ["x000000000000000"] })).toBe("none");
   });
 });
 
 describe("matchArt ties", () => {
-  it("reports every card within the margin of the winner", () => {
-    const table = parseHashTable({
-      size: HASH_SIZE,
-      ids: ["a", "b", "far"],
-      packed: "0000000000000000" + "0000000000000003" + "ffffffffffffffff",
-    });
-    const match = matchArt(table, ["0000000000000000"]);
-    expect(match!.ties.sort()).toEqual(["a", "b"]);
-    expect(match!.ties).not.toContain("far");
+  it("reports every fingerprint within the margin of the winner", () => {
+    const near1 = "0000000000000000";
+    const near2 = "0000000000000003";
+    const far = "ffffffffffffffff";
+    const table = parseHashTable({ size: HASH_SIZE, packed: near1 + near2 + far });
+    const match = matchArt(table, [near1]);
+    expect(match!.ties.sort()).toEqual([near1, near2].sort());
+    expect(match!.ties).not.toContain(far);
+  });
+
+  it("does not repeat a fingerprint two cards happen to share", () => {
+    // Duplicates are real — about 2% of the Pokemon catalogue — and a repeated
+    // fingerprint in the tie list tells the server nothing it does not already
+    // know, since it expands one fingerprint to every card holding it.
+    const dup = "0000000000000000";
+    const table = parseHashTable({ size: HASH_SIZE, packed: dup + dup + "ffffffffffffffff" });
+    expect(matchArt(table, [dup])!.ties).toEqual([dup]);
   });
 });
 
 describe("isArtConfident", () => {
   it("accepts a close, unambiguous match", () => {
-    expect(isArtConfident({ id: "x", distance: 4, margin: 20, ties: ["x"] })).toBe(true);
+    expect(isArtConfident({ hash: "x000000000000000", distance: 4, margin: 20, ties: ["x000000000000000"] })).toBe(true);
   });
 
   it("refuses a distant match", () => {
     // Different cards measured 19 bits apart at the closest, so anything past
     // the threshold is more likely a coincidence than a card.
-    expect(isArtConfident({ id: "x", distance: 18, margin: 20, ties: ["x"] })).toBe(false);
+    expect(isArtConfident({ hash: "x000000000000000", distance: 18, margin: 20, ties: ["x000000000000000"] })).toBe(false);
     expect(MAX_ART_DISTANCE).toBeLessThan(19);
   });
 
   it("refuses two printings that share artwork", () => {
     // Close to both, so the picture cannot choose between them. The collector
     // number decides that, not the art.
-    expect(isArtConfident({ id: "x", distance: 3, margin: 1, ties: ["x", "y"] })).toBe(false);
+    expect(isArtConfident({ hash: "x000000000000000", distance: 3, margin: 1, ties: ["x000000000000000", "y000000000000000"] })).toBe(false);
   });
 
   it("refuses nothing at all", () => {

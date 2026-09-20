@@ -53,58 +53,80 @@ export const HASH_BYTES = HEX_CHARS / 2;
 export const HASH_WORDS = HASH_BYTES / 4;
 
 /**
- * The wire format: card ids beside one long run of fixed-width hex.
+ * The wire format: one long run of fixed-width hex, and nothing else.
  *
- * Twenty-two thousand `{"id": "hash"}` pairs spend most of their bytes on
- * punctuation. Parallel arrays drop that, and the ids compress well because
- * they share set prefixes while the fingerprints, being near-random, do not
- * compress at all — so this is close to the floor for shipping the catalogue.
+ * Card ids are deliberately absent. The browser does not need them — it matches
+ * a picture and hands the winning *fingerprint* back, and the server turns that
+ * into a card. Measured on Magic's 49,047 cards, shipping the ids alongside
+ * costs 1.37MB gzipped against 0.39MB without them: the ids are UUIDs and are
+ * three quarters of the payload. That download has to finish before artwork
+ * matching can start at all, so on a phone it was the difference between a
+ * scanner that works and one that silently falls back to reading titles for the
+ * first ten seconds.
+ *
+ * Echoing the fingerprint rather than an index also avoids any version
+ * coupling. An index would be meaningless if the table were rebuilt between the
+ * download and the lookup; a fingerprint either exists in the server's table or
+ * it does not, and "does not" is a clean decline rather than a wrong card.
  */
 export type PackedHashTable = {
-  ids: string[];
-  /** Concatenated fingerprints, HEX_CHARS each, in the same order as `ids`. */
+  /** Concatenated fingerprints, HEX_CHARS each. */
   packed: string;
   size: number;
 };
 
 /**
- * The matching form: ids beside a flat byte buffer.
+ * The matching form: a flat word buffer, plus the hex it came from.
  *
- * Unpacked once on arrival so the hot loop is XOR and a table lookup over a
- * typed array, rather than slicing substrings and re-parsing hex twenty-two
- * thousand times per frame.
+ * Unpacked once on arrival so the hot loop is XOR over a typed array rather
+ * than slicing substrings and re-parsing hex tens of thousands of times per
+ * frame. The original hex is kept so a winner can be named without
+ * re-serialising it.
  */
 export type HashTable = {
-  ids: string[];
   /** All fingerprints end to end, HASH_WORDS per card, big-endian. */
   words: Uint32Array;
+  /** The same fingerprints as hex, for reading a match back out. */
+  packed: string;
+  count: number;
   size: number;
 };
 
 export const EMPTY_HASH_TABLE: HashTable = {
-  ids: [],
   words: new Uint32Array(0),
+  packed: "",
+  count: 0,
   size: HASH_SIZE,
 };
 
-export function parseHashTable(packed: PackedHashTable | null): HashTable {
-  if (!packed?.ids?.length || typeof packed.packed !== "string") return EMPTY_HASH_TABLE;
+export function parseHashTable(table: PackedHashTable | null): HashTable {
+  if (!table || typeof table.packed !== "string" || table.packed.length === 0) {
+    return EMPTY_HASH_TABLE;
+  }
   // A table built with a different hash size is not comparable with ours, and
   // matching against it would produce confident nonsense rather than an error.
-  if (packed.size !== HASH_SIZE) return EMPTY_HASH_TABLE;
-  if (packed.packed.length !== packed.ids.length * HEX_CHARS) return EMPTY_HASH_TABLE;
+  if (table.size !== HASH_SIZE) return EMPTY_HASH_TABLE;
+  // A truncated table would leave a partial fingerprint at the end and match
+  // against whatever the padding happened to be.
+  if (table.packed.length % HEX_CHARS !== 0) return EMPTY_HASH_TABLE;
   // The word-at-a-time matcher below assumes the fingerprint divides into whole
   // 32-bit words. It does at 64 bits; this refuses rather than reading past the
   // end if that ever changes.
   if (!Number.isInteger(HASH_WORDS)) return EMPTY_HASH_TABLE;
 
-  const words = new Uint32Array(packed.ids.length * HASH_WORDS);
+  const count = table.packed.length / HEX_CHARS;
+  const words = new Uint32Array(count * HASH_WORDS);
   for (let i = 0; i < words.length; i += 1) {
     // >>> 0 because parseInt returns a signed-looking number for anything with
     // the top bit set, and Uint32Array would otherwise take the wrong value.
-    words[i] = parseInt(packed.packed.slice(i * 8, i * 8 + 8), 16) >>> 0;
+    words[i] = parseInt(table.packed.slice(i * 8, i * 8 + 8), 16) >>> 0;
   }
-  return { ids: packed.ids, words, size: packed.size };
+  return { words, packed: table.packed, count, size: table.size };
+}
+
+/** The fingerprint at one position in the table, as hex. */
+function hashAt(table: HashTable, index: number): string {
+  return table.packed.slice(index * HEX_CHARS, index * HEX_CHARS + HEX_CHARS);
 }
 
 /** A single fingerprint as 32-bit words, for comparing against the table. */
@@ -325,13 +347,14 @@ export function hamming(a: string, b: string): number {
 }
 
 export type ArtMatch = {
-  id: string;
+  /** The winning fingerprint, as hex. The server turns this into a card. */
+  hash: string;
   /** Bits differing from the closest reference. */
   distance: number;
   /** Extra bits to the next-closest *different* card. */
   margin: number;
   /**
-   * Every card within the margin of the winner, including it.
+   * Every fingerprint within the margin of the winner, including it.
    *
    * More than one means the picture cannot choose, and that is usually not a
    * failure — it is the same artwork reprinted. Measured on the real table, an
@@ -403,14 +426,14 @@ export function matchArt(table: HashTable, queries: string[]): ArtMatch | null {
     probes.set(w, probeCount * HASH_WORDS);
     probeCount += 1;
   }
-  if (probeCount === 0 || table.ids.length === 0) return null;
+  if (probeCount === 0 || table.count === 0) return null;
 
   const words = table.words;
   let bestIndex = -1;
   let best = Number.MAX_SAFE_INTEGER;
   let second = Number.MAX_SAFE_INTEGER;
 
-  for (let card = 0; card < table.ids.length; card += 1) {
+  for (let card = 0; card < table.count; card += 1) {
     const offset = card * HASH_WORDS;
     let distance = Number.MAX_SAFE_INTEGER;
 
@@ -439,7 +462,7 @@ export function matchArt(table: HashTable, queries: string[]): ArtMatch | null {
   // tie relative to it.
   const ties: string[] = [];
   const cutoff = best + MIN_ART_MARGIN;
-  for (let card = 0; card < table.ids.length && ties.length < MAX_TIES; card += 1) {
+  for (let card = 0; card < table.count && ties.length < MAX_TIES; card += 1) {
     const offset = card * HASH_WORDS;
     let distance = Number.MAX_SAFE_INTEGER;
     for (let p = 0; p < probeCount; p += 1) {
@@ -450,14 +473,17 @@ export function matchArt(table: HashTable, queries: string[]): ArtMatch | null {
       }
       if (d < distance) distance = d;
     }
-    if (distance <= cutoff) ties.push(table.ids[card]);
+    if (distance <= cutoff) ties.push(hashAt(table, card));
   }
 
   return {
-    id: table.ids[bestIndex],
+    hash: hashAt(table, bestIndex),
     distance: best,
     margin: second === Number.MAX_SAFE_INTEGER ? HASH_SIZE * HASH_SIZE : second - best,
-    ties,
+    // De-duplicated: two cards sharing one fingerprint appear twice here and
+    // the repeat carries no information. The server expands a single
+    // fingerprint to every card holding it anyway.
+    ties: [...new Set(ties)],
   };
 }
 

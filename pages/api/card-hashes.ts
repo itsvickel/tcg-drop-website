@@ -14,11 +14,13 @@ import { HASH_SIZE, HEX_CHARS, type PackedHashTable } from "../../lib/artHash";
  * server would throw that away and turn a 6ms local computation into a request
  * per second per user.
  *
- * Sent as parallel arrays rather than an object of id-to-hash pairs: twenty-two
- * thousand JSON pairs spend most of their bytes on punctuation. The ids
- * compress well because they share set prefixes; the fingerprints are
- * near-random and do not compress at all, which puts a hard floor of about
- * eight bytes a card on this however it is encoded.
+ * Fingerprints only — no card ids. The browser matches a picture and hands the
+ * winning fingerprint back, and the lookup turns that into a card, so shipping
+ * the ids would be paying for something the client never reads. On Magic's
+ * 49,047 cards that is 1.37MB against 0.39MB: the ids are UUIDs and three
+ * quarters of the payload. Since nothing can be matched until this has
+ * arrived, that was the difference between a scanner that works on mobile data
+ * and one that quietly reads titles for the first ten seconds.
  *
  * Cached hard, and partial by design. The builder works newest-set-first and is
  * resumable, so a catalogue that is only half fingerprinted still covers the
@@ -30,7 +32,7 @@ type Response = PackedHashTable | { error: string };
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const cache = new Map<string, { expiresAt: number; value: PackedHashTable }>();
 
-const EMPTY: PackedHashTable = { ids: [], packed: "", size: HASH_SIZE };
+const EMPTY: PackedHashTable = { packed: "", size: HASH_SIZE };
 
 type HashFile = { size?: number; hashes?: Record<string, string> };
 
@@ -65,15 +67,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       return res.status(200).json(EMPTY);
     }
 
-    const ids: string[] = [];
     const parts: string[] = [];
-    for (const [id, hex] of Object.entries(file.hashes ?? {})) {
+    for (const hex of Object.values(file.hashes ?? {})) {
+      // A malformed entry would shift every fingerprint after it by a few
+      // characters, so it is dropped rather than padded.
       if (typeof hex !== "string" || hex.length !== HEX_CHARS) continue;
-      ids.push(id);
       parts.push(hex);
     }
 
-    const value: PackedHashTable = { ids, packed: parts.join(""), size: HASH_SIZE };
+    const value: PackedHashTable = { packed: parts.join(""), size: HASH_SIZE };
     cache.set(config.slug, { expiresAt: Date.now() + CACHE_TTL_MS, value });
     res.setHeader("X-Cache", "miss");
     return res.status(200).json(value);

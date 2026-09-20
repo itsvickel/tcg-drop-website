@@ -22,6 +22,24 @@ import { artOutcome, isArtConfident, matchArt, parseHashTable } from "../lib/art
 
 const table = parseHashTable(fixture.table);
 
+/**
+ * The card a fingerprint belongs to, which the browser no longer downloads.
+ *
+ * The wire format dropped card ids — they were three quarters of the payload
+ * and the client never read them — so a match now comes back as a fingerprint
+ * and the server resolves it. This rebuilds that map from the fixture so the
+ * test can check the same thing it always did.
+ */
+const idByHash = new Map<string, string[]>();
+(fixture.table.ids as string[]).forEach((id, i) => {
+  const hex = fixture.table.packed.slice(i * 16, i * 16 + 16);
+  const found = idByHash.get(hex);
+  if (found) found.push(id);
+  else idByHash.set(hex, [id]);
+});
+const idsFor = (hash: string) => idByHash.get(hash) ?? [];
+const matchesCard = (hash: string, id: string) => idsFor(hash).includes(id);
+
 type Case = { id: string; name: string; kind: string; probes: string[] };
 const cases = fixture.cases as Case[];
 
@@ -47,7 +65,11 @@ const resolve = (c: Case) => {
   let hit = resolved.get(c);
   if (!hit) {
     const match = matchArt(table, c.probes);
-    hit = { match, correct: match?.id === c.id, confident: isArtConfident(match) };
+    hit = {
+      match,
+      correct: !!match && matchesCard(match.hash, c.id),
+      confident: isArtConfident(match),
+    };
     resolved.set(c, hit);
   }
   return hit;
@@ -55,7 +77,7 @@ const resolve = (c: Case) => {
 
 describe("matching a degraded camera frame", () => {
   it("loaded a table big enough for the result to mean something", () => {
-    expect(table.ids.length).toBeGreaterThan(2500);
+    expect(table.count).toBeGreaterThan(2500);
     expect(cases.length).toBe(160);
   });
 
@@ -94,14 +116,18 @@ describe("matching a degraded camera frame", () => {
       const outcome = artOutcome(match);
       if (outcome === "none") continue;
       if (outcome === "pinned") {
-        match!.id === c.id ? (usable += 1) : (harmful += 1);
+        // A fingerprint shared by two cards is not a pin from the server's
+        // point of view, so only a fingerprint owned by exactly this card counts.
+        const owners = idsFor(match!.hash);
+        owners.length === 1 && owners[0] === c.id ? (usable += 1) : (harmful += 1);
         continue;
       }
       // The server expands a tie only when every candidate is the same card;
       // otherwise it declines, which is neither usable nor harmful.
-      const names = new Set(match!.ties.map((t) => nameOfCase(t)).filter(Boolean));
+      const tiedIds = match!.ties.flatMap(idsFor);
+      const names = new Set(tiedIds.map((id) => nameOfCase(id)).filter(Boolean));
       if (names.size !== 1) continue;
-      match!.ties.includes(c.id) ? (usable += 1) : (harmful += 1);
+      tiedIds.includes(c.id) ? (usable += 1) : (harmful += 1);
     }
     // Against the full 21,937-card catalogue this measures 142/160 usable with
     // zero harmful. The fixture's table is smaller, so the bar here is on the
@@ -132,6 +158,15 @@ describe("matching a degraded camera frame", () => {
       const correct = rs.filter((c) => resolve(c).correct).length;
       expect(`${kind}: ${correct}/20`).toBe(`${kind}: 20/20`);
     }
+  });
+
+  it("resolves a fingerprint back to the card that owns it", () => {
+    // The round trip the wire format now depends on. If this breaks, every
+    // scan resolves to nothing while the matcher still looks perfect.
+    const sample = cases[0];
+    const { match } = resolve(sample);
+    expect(match).not.toBeNull();
+    expect(idsFor(match!.hash).length).toBeGreaterThan(0);
   });
 
   it("declines rather than guesses when two printings share artwork", () => {

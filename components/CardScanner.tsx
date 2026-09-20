@@ -71,11 +71,14 @@ type Props = {
   /** Which game's vocabulary and fingerprints to match against. */
   tcg: string;
   /**
-   * Called when a card is recognised. `cardId` is set when the artwork
-   * identified an exact printing, which is a stronger answer than a name and
-   * number: it names one card rather than a search that may return dozens.
+   * Called when a card is recognised.
+   *
+   * `cardHash` is the winning fingerprint when the artwork identified one card
+   * outright; `tiedHashes` are the candidates when it identified the picture
+   * but not which reprint. Fingerprints rather than ids, because the browser
+   * never downloads the ids — see PackedHashTable.
    */
-  onRead: (query: string, cardId?: string, tiedIds?: string[]) => void;
+  onRead: (query: string, cardHash?: string, tiedHashes?: string[]) => void;
   onClose: () => void;
   /**
    * Bumped by the page when the user asks to scan another card.
@@ -296,7 +299,7 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
   const matchByArt = useCallback(() => {
     const video = videoRef.current;
     const table = artRef.current;
-    if (!video || !video.videoWidth || table.ids.length === 0) return null;
+    if (!video || !video.videoWidth || table.count === 0) return null;
 
     const frame = guideInVideoSpace(video);
     if (!frame) return null;
@@ -414,8 +417,8 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
     while (runningRef.current) {
       let key = "";
       let query = "";
-      let cardId: string | undefined;
-      let tiedIds: string[] | undefined;
+      let cardHash: string | undefined;
+      let tiedHashes: string[] | undefined;
 
       const art = matchByArt();
       const outcome = artOutcome(art);
@@ -423,9 +426,9 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
       if (outcome === "pinned") {
         // The picture named one exact printing. That is a better answer than a
         // name and number, which still has to be searched for.
-        cardId = art!.id;
-        key = `art:${art!.id}`;
-        query = art!.id;
+        cardHash = art!.hash;
+        key = `art:${art!.hash}`;
+        query = art!.hash;
         setReading("Matched the picture — looking it up…");
       } else if (outcome === "ambiguous") {
         // The artwork is certain and the printing is not, which is what a
@@ -435,9 +438,9 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
         // perfect read and fell back to OCR. The server turns these candidates
         // into a name search, so the user gets every printing of the card in
         // their hand and the collector number settles the rest.
-        tiedIds = art!.ties;
-        key = `ties:${tiedIds.join(",")}`;
-        query = art!.id;
+        tiedHashes = art!.ties;
+        key = `ties:${tiedHashes.join(",")}`;
+        query = art!.hash;
         setReading("Matched the picture — finding the printing…");
       } else {
         try {
@@ -458,7 +461,7 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
         if (agreeing >= CONSENSUS && key !== lastEmittedRef.current) {
           lastEmittedRef.current = key;
           recentRef.current = [];
-          onReadRef.current(query, cardId, tiedIds);
+          onReadRef.current(query, cardHash, tiedHashes);
         }
       }
 
@@ -493,7 +496,7 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
         vocabularyRef.current = payload.names ?? [];
         artRef.current = parseHashTable(packed);
         setVocabularyReady((payload.names?.length ?? 0) > 0);
-        setArtCount(artRef.current.ids.length);
+        setArtCount(artRef.current.count);
       } catch {
         // Offline or the index is not published for this game. The scanner
         // still reads; it just cannot reject a non-card, which is how it
