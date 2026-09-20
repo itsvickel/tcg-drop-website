@@ -236,7 +236,13 @@ export default function ScanPage() {
           prices can differ by a factor of ten.
         </p>
 
-        {cameraOpen && <CardScanner onRead={handleScan} onClose={() => setCameraOpen(false)} />}
+        {cameraOpen && (
+          <CardScanner
+            tcg={tcg}
+            onRead={handleScan}
+            onClose={() => setCameraOpen(false)}
+          />
+        )}
 
         {loading && <p className={styles.state}>Looking that up…</p>}
         {error && (

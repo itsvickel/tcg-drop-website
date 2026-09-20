@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseScan, scanToQuery } from "../lib/cardLookup";
 import { gradeFrame, stretchRange, type FrameGrade } from "../lib/frameQuality";
+import { bestMatch, isConfident, looksLikeName } from "../lib/fuzzyName";
 import styles from "../styles/Scan.module.css";
 
 /**
@@ -59,6 +60,8 @@ const BORDER_PX = 12;
 
 
 type Props = {
+  /** Which game's vocabulary to validate readings against. */
+  tcg: string;
   /** Called when two passes agree. May fire repeatedly as the card changes. */
   onRead: (query: string) => void;
   onClose: () => void;
@@ -72,7 +75,7 @@ type Worker = {
   terminate: () => Promise<unknown>;
 };
 
-export default function CardScanner({ onRead, onClose }: Props) {
+export default function CardScanner({ tcg, onRead, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -85,8 +88,17 @@ export default function CardScanner({ onRead, onClose }: Props) {
   const [message, setMessage] = useState("Starting the camera…");
   const [reading, setReading] = useState("");
   const [quality, setQuality] = useState<string | null>(null);
+  const [vocabularyReady, setVocabularyReady] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [torchable, setTorchable] = useState(false);
+  /**
+   * Every card name, fetched once.
+   *
+   * A ref rather than state: the scan loop reads it on every pass and must not
+   * be restarted each time it changes. Empty until it arrives, and the scanner
+   * simply validates nothing until then rather than blocking on the download.
+   */
+  const vocabularyRef = useRef<string[]>([]);
 
   /**
    * Where the on-screen guide box actually sits in the video's own pixels.
@@ -203,7 +215,42 @@ export default function CardScanner({ onRead, onClose }: Props) {
     [guideInVideoSpace]
   );
 
-  /** One OCR pass over both bands. Returns a query string, or "". */
+  /**
+   * The real card name a set of OCR candidates refers to, or null.
+   *
+   * Tries each candidate the parser offered, best first, and takes the first
+   * that resolves confidently. Confidence is a margin, not a distance: a
+   * reading one edit from two different cards is a coin toss however close it
+   * is to either, and "Absol ex" and "Absol GX" are one edit apart and ten
+   * times apart in price.
+   */
+  const resolveName = useCallback((candidates: string[]): string | null => {
+    const vocabulary = vocabularyRef.current;
+    for (const candidate of candidates) {
+      if (!looksLikeName(candidate)) continue;
+      // No vocabulary yet — the download is still in flight. Accept the
+      // candidate on its shape alone rather than refusing to scan at all.
+      if (vocabulary.length === 0) return candidate;
+      const match = bestMatch(vocabulary, candidate);
+      if (isConfident(match)) return match!.name;
+    }
+    return null;
+  }, []);
+
+  /**
+   * One OCR pass, validated against the real card vocabulary.
+   *
+   * Returns "" unless the reading resolves to a card that exists. This is the
+   * fix for the scanner showing "fd,15" as though it had read something: before
+   * it, any line of three or more characters became a candidate and was
+   * displayed and searched. Nothing in the pipeline knew what a card is called,
+   * so noise off the card's border was indistinguishable from a name.
+   *
+   * Two gates, cheapest first. `looksLikeName` throws out anything that is
+   * mostly punctuation and digits without touching the vocabulary at all, and
+   * the survivors are matched against every real name — where "Charlzard"
+   * resolves to Charizard and "fd,15" has nowhere to land.
+   */
   const readOnce = useCallback(async (): Promise<string> => {
     const video = videoRef.current;
     const worker = workerRef.current;
@@ -226,17 +273,40 @@ export default function CardScanner({ onRead, onClose }: Props) {
     const codeText = (await worker.recognize(code.canvas)).data.text;
 
     let scan = parseScan(nameText, codeText);
+    let resolved = resolveName(scan.nameCandidates);
 
     // Tesseract 4 and later need dark text on a light ground and will not invert
     // for themselves. Plenty of modern cards print the name light-on-dark, so a
-    // failed name gets one inverted retry rather than costing the whole pass.
-    if (scan.nameCandidates.length === 0) {
+    // pass that resolved nothing gets one inverted retry. Retrying on "no
+    // confident match" rather than "no text at all" matters: a light-on-dark
+    // title usually reads as *something*, just not as a card.
+    if (!resolved) {
       const inverted = cropBand(video, NAME_BAND, true);
-      scan = parseScan((await worker.recognize(inverted.canvas)).data.text, codeText);
+      const invertedScan = parseScan(
+        (await worker.recognize(inverted.canvas)).data.text,
+        codeText
+      );
+      const invertedName = resolveName(invertedScan.nameCandidates);
+      if (invertedName) {
+        scan = invertedScan;
+        resolved = invertedName;
+      }
     }
 
-    return scanToQuery(scan);
-  }, [cropBand]);
+    if (!resolved) {
+      // Read something, but nothing that is a card. Say so rather than
+      // displaying the noise — "Reading: fd,15" looks like progress and is not.
+      setReading("");
+      return "";
+    }
+
+    // The matched card name, not the raw reading. The collector line rides
+    // along unvalidated because it is a number, not a word, and the digit
+    // repair in parseScan is the only correction it can usefully get.
+    const query = scanToQuery({ ...scan, nameCandidates: [resolved] });
+    setReading(query);
+    return query;
+  }, [cropBand, resolveName]);
 
   /** The scan loop. Runs until the component unmounts or the camera closes. */
   const loop = useCallback(async () => {
@@ -250,7 +320,10 @@ export default function CardScanner({ onRead, onClose }: Props) {
       }
 
       if (query) {
-        setReading(query);
+        // `readOnce` owns what is displayed — it is the only place that knows
+        // whether a reading resolved to a real card. Setting it again here
+        // would put the raw query back on screen, which is the gibberish this
+        // was fixing.
         const key = query.toLowerCase();
         const recent = recentRef.current;
         recent.push(key);
@@ -267,6 +340,26 @@ export default function CardScanner({ onRead, onClose }: Props) {
       await new Promise((r) => setTimeout(r, LOOP_PAUSE_MS));
     }
   }, [onRead, readOnce]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/card-names?tcg=${tcg}`);
+        const payload = (await res.json()) as { names?: string[] };
+        if (cancelled) return;
+        vocabularyRef.current = payload.names ?? [];
+        setVocabularyReady((payload.names?.length ?? 0) > 0);
+      } catch {
+        // Offline or the index is not published for this game. The scanner
+        // still reads; it just cannot reject a non-card, which is how it
+        // behaved before the vocabulary existed.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tcg]);
 
   useEffect(() => {
     let cancelled = false;
@@ -376,13 +469,23 @@ export default function CardScanner({ onRead, onClose }: Props) {
         )}
       </div>
 
+      {/* A recognised card outranks the frame advice: the advice exists to
+          explain a failure, and there isn't one. Everything shown here is now a
+          real card name rather than whatever OCR produced, so there is no
+          longer a state in which this line shows gibberish. */}
       <p className={styles.hint} aria-live="polite">
         {message ||
+          (reading ? `Found: ${reading}` : null) ||
           quality ||
-          (reading
-            ? `Reading: ${reading}`
-            : "Hold the card inside the frame — it reads continuously, nothing to press.")}
+          "Hold the card inside the frame — it reads continuously, nothing to press."}
       </p>
+
+      {!vocabularyReady && phase === "scanning" && (
+        <p className={styles.privacy}>
+          Card list unavailable, so readings cannot be checked against real card
+          names — expect more misreads until it loads.
+        </p>
+      )}
 
       <div className={styles.scanActions}>
         {torchable && (
