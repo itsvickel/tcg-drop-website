@@ -138,6 +138,18 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
   const workerRef = useRef<Worker | null>(null);
   const guideRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /**
+   * The guide's position in video pixels, remembered between frames.
+   *
+   * Keyed on the video's own dimensions so a camera that changes resolution —
+   * or hands back its dimensions swapped, which iOS has been seen to do —
+   * recomputes rather than cropping the wrong region forever.
+   */
+  const guideRectRef = useRef<{
+    vw: number;
+    vh: number;
+    rect: { x: number; y: number; w: number; h: number };
+  } | null>(null);
   const runningRef = useRef(false);
   /** True while a Tesseract pass is running, so only one runs at a time. */
   const ocrBusyRef = useRef(false);
@@ -245,6 +257,17 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
    * for where the card is, whatever the camera does.
    */
   const guideInVideoSpace = useCallback((video: HTMLVideoElement) => {
+    // Cached, because this runs eight times a second now and each call reads
+    // two bounding rects — which forces the browser to flush layout, sixteen
+    // times a second, underneath a live video. The result only changes when
+    // something is resized: it is a *difference* between two rects, so it is
+    // already invariant to scrolling, and the frame itself never moves
+    // relative to the video.
+    const cached = guideRectRef.current;
+    if (cached && cached.vw === video.videoWidth && cached.vh === video.videoHeight) {
+      return cached.rect;
+    }
+
     const guide = guideRef.current;
     const vw = video.videoWidth;
     const vh = video.videoHeight;
@@ -261,12 +284,14 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
     const originX = videoRect.left + (videoRect.width - shownW) / 2;
     const originY = videoRect.top + (videoRect.height - shownH) / 2;
 
-    return {
+    const rect = {
       x: (guideRect.left - originX) / scale,
       y: (guideRect.top - originY) / scale,
       w: guideRect.width / scale,
       h: guideRect.height / scale,
     };
+    guideRectRef.current = { vw, vh, rect };
+    return rect;
   }, []);
 
   const cropBand = useCallback(
@@ -662,6 +687,20 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
       await new Promise((r) => setTimeout(r, ART_INTERVAL_MS));
     }
   }, [matchByArt, offer, readOnce]);
+
+  useEffect(() => {
+    // Layout changed, so the cached crop is no longer where the card is.
+    // Rotating a phone is the common case and gets this badly wrong without it.
+    const invalidate = () => {
+      guideRectRef.current = null;
+    };
+    window.addEventListener("resize", invalidate);
+    window.addEventListener("orientationchange", invalidate);
+    return () => {
+      window.removeEventListener("resize", invalidate);
+      window.removeEventListener("orientationchange", invalidate);
+    };
+  }, []);
 
   useEffect(() => {
     // Forget the last reading so the same card can be scanned again. The
