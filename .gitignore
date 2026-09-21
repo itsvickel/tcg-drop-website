@@ -3,6 +3,8 @@ node_modules/
 
 # build output
 .next/
+# Alternate build dirs, for a dev server that must not share one with a build.
+.next-*/
 out/
 
 # env files — never commit secrets
