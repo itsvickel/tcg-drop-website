@@ -38,7 +38,7 @@ const SUBJECTS: Record<string, string> = {
 async function sendAlertEmail(hit: TriggeredAlert, siteBase: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
-  const from = process.env.RESEND_FROM ?? "TCG Drop <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM ?? "The Mana Cafe <onboarding@resend.dev>";
   const { alert, product } = hit;
 
   const res = await fetch("https://api.resend.com/emails", {

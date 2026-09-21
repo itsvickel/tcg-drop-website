@@ -1,4 +1,4 @@
-# TCG Drop
+# The Mana Cafe
 
 Next.js 14 web app for tracking live Pokémon TCG and Magic: The Gathering prices across Canadian retailers.
 It reads `{tcg}/state.json` and `{tcg}/price_history.json` from a private GitHub repository and presents searchable, sortable product cards with 7-day trend context.

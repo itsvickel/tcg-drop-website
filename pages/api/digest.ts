@@ -80,7 +80,7 @@ function buildHtml(deals: DigestDeal[], week: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>TCG Drop Top Deals — Week of ${week}</title>
+  <title>The Mana Cafe Top Deals — Week of ${week}</title>
 </head>
 <body style="margin:0;padding:0;background:#0d1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:640px;margin:0 auto;padding:24px 16px;">

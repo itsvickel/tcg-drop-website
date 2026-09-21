@@ -1,6 +1,6 @@
 {
-  "name": "TCG Drop — Canadian Card Prices",
-  "short_name": "TCG Drop",
+  "name": "The Mana Cafe — Canadian Card Prices",
+  "short_name": "Mana Cafe",
   "description": "Live Pokemon TCG and Magic prices across Canadian retailers, with drop times and price history.",
   "start_url": "/pokemon/sealed",
   "scope": "/",

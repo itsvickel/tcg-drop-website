@@ -65,7 +65,7 @@ export default function SetsPage({ initialSets }: Props) {
   return (
     <>
       <Head>
-        <title>{`All ${config.displayName} Sets — Sealed Prices | TCG Drop`}</title>
+        <title>{`All ${config.displayName} Sets — Sealed Prices | The Mana Cafe`}</title>
         <meta
           name="description"
           content={`Every ${config.displayName} set with sealed product tracked across Canadian retailers, with the cheapest current price for each.`}

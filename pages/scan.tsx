@@ -381,7 +381,7 @@ export default function ScanPage() {
   );
 
   const credit = providerCredit(tcg);
-  const title = `Card Scanner and Price Lookup — ${TCG_CONFIGS[tcg].displayName} | TCG Drop`;
+  const title = `Card Scanner and Price Lookup — ${TCG_CONFIGS[tcg].displayName} | The Mana Cafe`;
 
   // Read defensively. A rolling deploy, or a response cached by the API before
   // its shape last changed, can hand this page a payload without a field it

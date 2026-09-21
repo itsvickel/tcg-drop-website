@@ -51,8 +51,18 @@ describe("SITE_URL", () => {
   });
 
   it("defaults to a host that actually resolves", () => {
+    // Hardcoded on purpose, and it is meant to fail when the site moves.
+    //
+    // It already has. The project was renamed, the old vercel.app host started
+    // 404ing everything, NEXT_PUBLIC_SITE_URL was never set — and so every
+    // canonical tag told Google the real page lived at a dead URL, the sitemap
+    // advertised dead URLs, and alert emails linked people nowhere. Nothing
+    // caught it, because a stale constant looks exactly like a fresh one.
+    //
+    // So this test exists to make a rename impossible to do quietly. If you are
+    // here because it failed: check the new host answers before updating it.
     const { SITE_URL } = loadWith(CLEAR);
-    expect(SITE_URL).toBe("https://pokemon-drop-website.vercel.app");
+    expect(SITE_URL).toBe("https://themanacafe.vercel.app");
   });
 });
 

@@ -52,6 +52,14 @@ export type ScanHistoryEntry = {
   at: number;
 };
 
+/**
+ * Not renamed with the rest of the branding, on purpose.
+ *
+ * A storage key is an address, not a label. Changing it does not migrate
+ * anyone's history — it orphans it, and the first thing a user would see after
+ * the rename is an empty list where their scanned binder used to be. Nobody
+ * ever reads this string.
+ */
 const KEY = "tcgdrop.scanHistory.v1";
 
 /**

@@ -31,14 +31,14 @@ export default function App({ Component, pageProps }: AppProps) {
       <Head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>TCG Drop — Best Canadian Prices</title>
+        <title>The Mana Cafe — Best Canadian Prices</title>
         <meta
           name="description"
           content={`Track live TCG sealed product prices across ${RETAILER_CLAIM} Canadian retailers. Compare Pokémon TCG and Magic: The Gathering prices. Updated ${UPDATE_CADENCE}.`}
         />
         <meta name="robots" content="index, follow" />
         <meta property="og:type"        content="website" />
-        <meta property="og:title"       content="TCG Drop — Best Canadian Prices" />
+        <meta property="og:title"       content="The Mana Cafe — Best Canadian Prices" />
         <meta
           property="og:description"
           content={`Live TCG sealed product prices across ${RETAILER_CLAIM} Canadian retailers. Always find the best deal.`}
@@ -55,7 +55,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="TCG Drop" />
+        <meta name="apple-mobile-web-app-title" content="The Mana Cafe" />
       </Head>
       <Component {...pageProps} />
     </>

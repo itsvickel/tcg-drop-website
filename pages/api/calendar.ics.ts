@@ -63,11 +63,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const lines: string[] = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//TCG Drop//Release Calendar//EN",
+      "PRODID:-//The Mana Cafe//Release Calendar//EN",
       "CALSCALE:GREGORIAN",
       "METHOD:PUBLISH",
       `X-WR-CALNAME:${esc(config.displayName)} Releases`,
-      `X-WR-CALDESC:${esc(`${config.displayName} set release dates from TCG Drop`)}`,
+      `X-WR-CALDESC:${esc(`${config.displayName} set release dates from The Mana Cafe`)}`,
       // Most clients only re-poll on their own schedule; this is a hint.
       "REFRESH-INTERVAL;VALUE=DURATION:PT12H",
       "X-PUBLISHED-TTL:PT12H",

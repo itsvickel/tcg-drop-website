@@ -88,12 +88,12 @@ export default function HealthPage() {
   return (
     <>
       <Head>
-        <title>Scraper Health — TCG Drop</title>
+        <title>Scraper Health — The Mana Cafe</title>
         <meta name="robots" content="noindex" />
       </Head>
 
       <nav className={styles.topBar}>
-        <Link href="/pokemon" className={styles.homeLink}>← TCG Drop</Link>
+        <Link href="/pokemon" className={styles.homeLink}>← The Mana Cafe</Link>
         <span className={styles.topBarTitle}>Scraper Health</span>
       </nav>
 

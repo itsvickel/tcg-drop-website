@@ -93,7 +93,7 @@ export default function MoversPage() {
   return (
     <>
       <Head>
-        <title>{`Price Movers — ${config.displayName} | TCG Drop`}</title>
+        <title>{`Price Movers — ${config.displayName} | The Mana Cafe`}</title>
         <meta
           name="description"
           content={`Biggest ${config.displayName} sealed price rises and drops over the last ${windowLabel}, across Canadian retailers.`}

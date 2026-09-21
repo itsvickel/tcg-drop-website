@@ -39,7 +39,7 @@ export default function SetPage() {
   return (
     <>
       <Head>
-        <title>{`${title} Sealed Prices — TCG Drop`}</title>
+        <title>{`${title} Sealed Prices — The Mana Cafe`}</title>
         <meta
           name="description"
           content={

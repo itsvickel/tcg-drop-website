@@ -88,7 +88,7 @@ export default function RetailerPage({ retailer, samples, generatedAt, restock }
     .map((g) => TCG_CONFIGS[g as keyof typeof TCG_CONFIGS]?.displayName ?? g)
     .join(" and ");
 
-  const title = `${retailer.name} — Card Prices and Shipping | TCG Drop`;
+  const title = `${retailer.name} — Card Prices and Shipping | The Mana Cafe`;
   const description =
     `${retailer.name} prices tracked across ${retailer.listings.toLocaleString("en-CA")} ` +
     `listings. Where it is cheapest, what it carries, and what delivery costs.`;

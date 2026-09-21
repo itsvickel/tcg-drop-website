@@ -143,7 +143,7 @@ export default function AlertsPage() {
   return (
     <>
       <Head>
-        <title>Manage Alerts — TCG Drop</title>
+        <title>Manage Alerts — The Mana Cafe</title>
         <meta name="description" content="View and manage your price alerts and newsletter subscriptions" />
       </Head>
 

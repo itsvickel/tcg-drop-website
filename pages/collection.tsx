@@ -90,7 +90,7 @@ export default function CollectionPage() {
   return (
     <>
       <Head>
-        <title>My Collection — TCG Drop</title>
+        <title>My Collection — The Mana Cafe</title>
         <meta name="description" content="Track what you own and what it is worth, in Canadian dollars." />
         {/* Private to the signed-in user, so there is nothing here to index. */}
         <meta name="robots" content="noindex, follow" />

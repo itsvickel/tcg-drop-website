@@ -155,8 +155,8 @@ export default function ProductDetailPage({ tcg, groupKey, initialProduct = null
     : [];
 
   const pageTitle = product
-    ? `${product.name} — TCG Drop`
-    : loading ? "Loading… — TCG Drop" : "Not Found — TCG Drop";
+    ? `${product.name} — The Mana Cafe`
+    : loading ? "Loading… — The Mana Cafe" : "Not Found — The Mana Cafe";
 
   const pageDescription = product
     ? `Best price: $${product.price.toFixed(2)} CAD @ ${product.retailer}. Track price history and compare ${allRetailers.length} retailers.`

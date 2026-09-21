@@ -185,6 +185,6 @@ describe("toCsv", () => {
 
 describe("csvFilename", () => {
   it("is dated, so two exports do not overwrite each other", () => {
-    expect(csvFilename(new Date("2026-09-21T14:00:00Z"))).toBe("tcg-drop-scans-2026-09-21.csv");
+    expect(csvFilename(new Date("2026-09-21T14:00:00Z"))).toBe("mana-cafe-scans-2026-09-21.csv");
   });
 });

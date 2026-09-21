@@ -23,7 +23,7 @@ export default function Footer({ syncedAt, retailersCount, productsCount }: Prop
     <footer className={styles.footer}>
       <div className={styles.inner}>
         <div className={styles.col}>
-          <span className={styles.brand}>TCG Drop</span>
+          <span className={styles.brand}>The Mana Cafe</span>
           <span className={styles.tagline}>
             Canadian retail prices, refreshed {UPDATE_CADENCE}
           </span>

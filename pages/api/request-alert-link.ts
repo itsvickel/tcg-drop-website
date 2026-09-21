@@ -20,7 +20,7 @@ const NEUTRAL = { ok: true, message: "If that address has alerts, a link is on i
 async function sendLink(email: string, url: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
-  const from = process.env.RESEND_FROM ?? "TCG Drop <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM ?? "The Mana Cafe <onboarding@resend.dev>";
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -28,9 +28,9 @@ async function sendLink(email: string, url: string): Promise<boolean> {
     body: JSON.stringify({
       from,
       to: email,
-      subject: "Your TCG Drop alerts link",
+      subject: "Your The Mana Cafe alerts link",
       html: `
-        <p>Here is your link to view and manage your TCG Drop alerts:</p>
+        <p>Here is your link to view and manage your The Mana Cafe alerts:</p>
         <p><a href="${url}">Manage my alerts</a></p>
         <p style="color:#6e7681;font-size:13px">
           This link works for 24 hours and only for ${email}.

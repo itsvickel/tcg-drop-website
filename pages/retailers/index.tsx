@@ -52,7 +52,7 @@ export default function RetailersPage({ retailers, generatedAt }: Props) {
   return (
     <>
       <Head>
-        <title>Canadian Pokémon &amp; Magic Card Shops — Prices and Shipping | TCG Drop</title>
+        <title>Canadian Pokémon &amp; Magic Card Shops — Prices and Shipping | The Mana Cafe</title>
         <meta
           name="description"
           content={`Compare ${retailers.length} Canadian card shops: how much of the catalogue each carries, where they sit on price, and what their free-shipping threshold is.`}

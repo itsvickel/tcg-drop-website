@@ -64,7 +64,7 @@ export default function CartPage() {
   return (
     <>
       <Head>
-        <title>Cheapest Way to Buy — TCG Drop</title>
+        <title>Cheapest Way to Buy — The Mana Cafe</title>
         <meta
           name="description"
           content="Work out which Canadian stores to order from so your whole list costs the least, shipping and tax included."

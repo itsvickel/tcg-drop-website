@@ -13,10 +13,15 @@
  * mismatch. It is readable from server code too, so API routes share it.
  *
  * The fallback is the Vercel domain rather than a custom one, because a URL
- * that resolves is always better than a prettier one that does not.
+ * that resolves is always better than a prettier one that does not — and that
+ * is not hypothetical. The project was renamed and the old vercel.app host
+ * started returning 404 for everything, while NEXT_PUBLIC_SITE_URL was never
+ * set. So every canonical tag told Google the real page lived at a dead URL,
+ * the whole sitemap advertised dead URLs, and alert emails linked people
+ * nowhere. Keep this pointing at a host that actually answers.
  */
 
-const FALLBACK = "https://pokemon-drop-website.vercel.app";
+const FALLBACK = "https://themanacafe.vercel.app";
 
 function normalize(raw: string): string {
   const trimmed = raw.trim().replace(/\/+$/, "");

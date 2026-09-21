@@ -41,12 +41,12 @@ export default function AccountPage() {
   return (
     <>
       <Head>
-        <title>Account — TCG Drop</title>
+        <title>Account — The Mana Cafe</title>
         <meta name="robots" content="noindex" />
       </Head>
 
       <nav className={styles.topBar}>
-        <Link href="/pokemon/sealed" className={styles.homeLink}>← TCG Drop</Link>
+        <Link href="/pokemon/sealed" className={styles.homeLink}>← The Mana Cafe</Link>
         <span className={styles.topBarTitle}>Account</span>
       </nav>
 

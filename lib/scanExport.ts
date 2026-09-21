@@ -68,9 +68,9 @@ export function toCsv(entries: ScanHistoryEntry[]): string {
   return rows.join("\r\n") + "\r\n";
 }
 
-/** `tcg-drop-scans-2026-09-21.csv` */
+/** `mana-cafe-scans-2026-09-21.csv` */
 export function csvFilename(now = new Date()): string {
-  return `tcg-drop-scans-${now.toISOString().slice(0, 10)}.csv`;
+  return `mana-cafe-scans-${now.toISOString().slice(0, 10)}.csv`;
 }
 
 /**
