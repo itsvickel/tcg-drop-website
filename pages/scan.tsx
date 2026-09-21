@@ -81,6 +81,17 @@ export default function ScanPage() {
    */
   const [scanAmbiguous, setScanAmbiguous] = useState(false);
   /**
+   * A brief confirmation over the viewfinder, in place of a modal.
+   *
+   * Scanning is a stack activity. A sheet that has to be dismissed after every
+   * card turns forty cards into forty taps, so a recognised card now flashes a
+   * line here, drops into the strip, and the camera keeps going — which is how
+   * every scanner built for volume behaves. The details are still one tap away
+   * on the strip.
+   */
+  const [banner, setBanner] = useState<string | null>(null);
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
    * The cards scanned on this device, newest first.
    *
    * Read after mount rather than during render: it comes from localStorage,
@@ -122,6 +133,13 @@ export default function ScanPage() {
    * to be, and on iOS the rubber-band drags the whole scanner around while
    * you are trying to hold a card steady.
    */
+  // A pending banner must not fire after the camera has gone.
+  useEffect(() => {
+    if (cameraOpen) return;
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    setBanner(null);
+  }, [cameraOpen]);
+
   useEffect(() => {
     if (!cameraOpen) return;
     const previous = document.body.style.overflow;
@@ -208,6 +226,18 @@ export default function ScanPage() {
           // Recorded only for a scan, and only once the card is known. A
           // fingerprint on its own is not something anyone can read back.
           const top = next.matches[0];
+          if (byFingerprint) {
+            const price = top?.marketCad;
+            setBanner(
+              top
+                ? `${top.name}${price !== null && price !== undefined ? ` · $${price.toFixed(2)}` : ""}`
+                : "No match — try again or type the name"
+            );
+            if (bannerTimer.current) clearTimeout(bannerTimer.current);
+            // Long enough to read while moving to the next card, short enough
+            // not to sit over the viewfinder while that card is being framed.
+            bannerTimer.current = setTimeout(() => setBanner(null), 2600);
+          }
           if (byFingerprint && top) {
             setHistory(
               addToHistory({
@@ -264,9 +294,19 @@ export default function ScanPage() {
       // rather than filled with a fingerprint; `runLookup` puts the card's real
       // name there once the lookup comes back.
       const byArt = !!cardHash || !!tiedHashes?.length;
-      // Opened before the lookup, not after: the point is to confirm the scan
-      // registered, and waiting for the network to say so is the problem.
-      setScanSheet(true);
+      // A banner, not a sheet. Shown before the lookup rather than after: the
+      // point is to confirm the scan registered, and waiting on the network to
+      // say so is the thing that made it feel unresponsive.
+      setBanner("Got it — looking up…");
+      if (bannerTimer.current) clearTimeout(bannerTimer.current);
+      // A short buzz is the fastest possible confirmation, and the only one
+      // that works while the phone is being moved to the next card. Absent on
+      // iOS Safari and on desktop, hence the guard.
+      try {
+        navigator.vibrate?.(25);
+      } catch {
+        // Some browsers expose it and throw when the page is not visible.
+      }
       setScanAmbiguous(!!tiedHashes?.length);
       setQuery(byArt ? "" : text);
       void runLookup(byArt ? "" : text, tcg, 0, {
@@ -290,7 +330,10 @@ export default function ScanPage() {
    */
   const reopen = useCallback(
     (entry: ScanHistoryEntry) => {
-      setScanSheet(false);
+      // Tapping a card in the strip is the deliberate act, so this is where the
+      // detail sheet belongs — not after every scan.
+      setScanSheet(true);
+      setScanAmbiguous(!!entry.hashes?.length);
       setSetId("");
       setQuery(entry.query ?? entry.name);
       void runLookup(entry.query ?? entry.name, tcg, 0, {
@@ -408,6 +451,7 @@ export default function ScanPage() {
             onRead={handleScan}
             rescanKey={rescanKey}
             fullscreen
+            banner={banner}
             footer={<ScanStrip history={history} onPick={reopen} />}
             onClose={() => {
               setCameraOpen(false);
@@ -859,8 +903,11 @@ function ScanSheet({
         )}
 
         <div className={styles.sheetActions}>
+          {/* "Keep scanning", not "Scan another": scanning never stopped. The
+              sheet is a detail view opened by tapping a card, so this dismisses
+              it rather than restarting anything. */}
           <button type="button" className={styles.sheetPrimary} onClick={onScanAnother}>
-            Scan another
+            Keep scanning
           </button>
           <button type="button" className={styles.sheetSecondary} onClick={onDone}>
             Done

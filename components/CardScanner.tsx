@@ -146,6 +146,13 @@ type Props = {
   fullscreen?: boolean;
   /** Recent scans, rendered along the bottom while fullscreen. */
   footer?: ReactNode;
+  /**
+   * A brief confirmation over the viewfinder.
+   *
+   * Owned by the page because the page is what knows the card's name and price;
+   * the scanner only knows it matched a fingerprint.
+   */
+  banner?: string | null;
 };
 
 type Phase = "starting" | "scanning" | "error";
@@ -163,6 +170,7 @@ export default function CardScanner({
   rescanKey = 0,
   fullscreen = false,
   footer,
+  banner,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -931,6 +939,13 @@ export default function CardScanner({
         </div>
         {phase === "scanning" && (
           <span className={styles.scanPulse} aria-hidden="true" />
+        )}
+        {/* Over the viewfinder rather than below it: while scanning a stack the
+            eyes are on the card, not on the page. */}
+        {banner && (
+          <div className={styles.banner} role="status" aria-live="polite">
+            {banner}
+          </div>
         )}
       </div>
 

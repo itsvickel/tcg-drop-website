@@ -971,3 +971,37 @@
   border-top: 1px dashed rgba(88, 166, 255, 0.4);
   border-bottom: 1px dashed rgba(88, 166, 255, 0.4);
 }
+
+/* A recognised card, confirmed over the viewfinder.
+   This replaced a sheet that had to be dismissed after every card, which made
+   a forty-card stack into forty taps. The eyes are on the card rather than on
+   the page while scanning, so the confirmation goes where they already are. */
+.banner {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: calc(100% - 24px);
+  padding: 9px 15px;
+  border-radius: 999px;
+  background: rgba(13, 17, 23, 0.94);
+  border: 1px solid var(--game-border, #58a6ff);
+  color: #e6edf3;
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  animation: bannerIn 140ms ease-out;
+}
+
+@keyframes bannerIn {
+  from { transform: translate(-50%, -8px); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner { animation: none; }
+}
