@@ -18,6 +18,14 @@
  * the lookup is what refreshes them.
  */
 
+import {
+  DEFAULT_CONDITION,
+  exactValueAtCondition,
+  isCondition,
+  valueAtCondition,
+  type Condition,
+} from "./cardCondition";
+
 export type ScanHistoryEntry = {
   /** The fingerprint that matched, when the artwork identified one printing. */
   hash?: string;
@@ -32,6 +40,14 @@ export type ScanHistoryEntry = {
   imageUrl: string;
   /** Market reference in CAD at the time of the scan, if there was one. */
   marketCad: number | null;
+  /**
+   * The grade the user set for this copy, if they set one.
+   *
+   * Absent on entries written before grading existed and on anything not yet
+   * graded, which both read as Near Mint — the market price is a Near Mint
+   * price, so that is the assumption already baked in.
+   */
+  condition?: Condition;
   /** Epoch milliseconds. */
   at: number;
 };
@@ -46,6 +62,41 @@ const KEY = "tcgdrop.scanHistory.v1";
  * quota — each entry is a few hundred bytes, so this is well under 50KB.
  */
 export const MAX_HISTORY = 60;
+
+/** The grade recorded for an entry, defaulting to what a market price means. */
+export function conditionOf(entry: ScanHistoryEntry): Condition {
+  return isCondition(entry.condition) ? entry.condition : DEFAULT_CONDITION;
+}
+
+/** What this copy is estimated to be worth at the grade it was given. */
+export function entryValue(entry: ScanHistoryEntry): number | null {
+  return valueAtCondition(entry.marketCad, conditionOf(entry));
+}
+
+/**
+ * Re-grade one entry, returning the list as it now stands.
+ *
+ * Matched by key rather than by index: the list can be re-ordered by a scan
+ * landing between the tap and the write.
+ */
+export function setCondition(
+  key: string,
+  condition: Condition,
+  storage?: Storage
+): ScanHistoryEntry[] {
+  const store = storage ?? safeStorage();
+  const next = loadHistory(store ?? undefined).map((e) =>
+    entryKey(e) === key ? { ...e, condition } : e
+  );
+  if (store) {
+    try {
+      store.setItem(KEY, JSON.stringify(next));
+    } catch {
+      // Same as addToHistory: the list is still right for this session.
+    }
+  }
+  return next;
+}
 
 /** A stable identity for a scan, so the same card does not stack up. */
 export function entryKey(entry: ScanHistoryEntry): string {
@@ -172,8 +223,14 @@ export function historyValue(
   let priced = 0;
   let unpriced = 0;
   for (const entry of entries) {
-    if (typeof entry.marketCad === "number" && entry.marketCad > 0) {
-      totalCad += entry.marketCad;
+    // Graded value, not market: a market price is a Near Mint price, and most
+    // cards out of a binder are not Near Mint. Summing market would overstate
+    // a stack, worst on exactly the expensive cards where it matters.
+    // Unrounded, and rounded once at the end. Adding per-card rounded values
+    // drifts — sixty half-cent commons become sixty whole cents.
+    const value = exactValueAtCondition(entry.marketCad, conditionOf(entry));
+    if (value !== null) {
+      totalCad += value;
       priced += 1;
     } else {
       unpriced += 1;

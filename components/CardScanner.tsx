@@ -153,6 +153,18 @@ type Props = {
    * the scanner only knows it matched a fingerprint.
    */
   banner?: string | null;
+  /**
+   * The set the user says they are working through, and the picker for it.
+   *
+   * Reprints are the one thing the picture cannot settle: two printings of one
+   * artwork are the same 64 bits, so the scanner correctly refuses to choose and
+   * falls back to searching the name. Saying "I am going through this box"
+   * collapses that, which is why the control belongs in the viewfinder rather
+   * than with the results filters.
+   */
+  sets?: { id: string; name: string }[];
+  setId?: string;
+  onSetChange?: (setId: string) => void;
 };
 
 type Phase = "starting" | "scanning" | "error";
@@ -171,6 +183,9 @@ export default function CardScanner({
   fullscreen = false,
   footer,
   banner,
+  sets,
+  setId = "",
+  onSetChange,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -249,6 +264,8 @@ export default function CardScanner({
   const [torchOn, setTorchOn] = useState(false);
   const [torchable, setTorchable] = useState(false);
   const [photoNote, setPhotoNote] = useState<string | null>(null);
+  /** Where the user last tapped to focus, for the ring. */
+  const [focusRing, setFocusRing] = useState<{ x: number; y: number; at: number } | null>(null);
   /**
    * Every card name, fetched once.
    *
@@ -881,6 +898,52 @@ export default function CardScanner({
     };
   }, [loop]);
 
+  /**
+   * Point the camera's focus where the user tapped.
+   *
+   * Phone autofocus hunts badly on a card held at arm's length: there is a
+   * flat, evenly-lit rectangle in the middle and a busy background behind it,
+   * and continuous autofocus often prefers the background. A tap is the
+   * standard way out of that, and it is what every camera app does.
+   *
+   * Support is thin — Android Chrome mostly, and only on cameras that report
+   * the capability — so this is entirely best-effort. Where it is unavailable
+   * the tap still flashes the ring, because a control that silently does
+   * nothing on some devices is worse than one that always acknowledges.
+   */
+  const focusAt = useCallback(async (clientX: number, clientY: number) => {
+    const video = videoRef.current;
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!video) return;
+
+    const rect = video.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    setFocusRing({ x: clientX - rect.left, y: clientY - rect.top, at: Date.now() });
+
+    if (!track) return;
+    const caps = track.getCapabilities?.() as
+      | { focusMode?: string[]; pointsOfInterest?: unknown }
+      | undefined;
+    if (!caps?.focusMode?.includes("manual") && !caps?.pointsOfInterest) return;
+
+    // Normalised to the 0-1 box the spec uses, clamped because a tap on the
+    // very edge can land a hair outside the element.
+    const x = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const y = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+    try {
+      await track.applyConstraints({
+        advanced: [
+          { pointsOfInterest: [{ x, y }] } as unknown as MediaTrackConstraintSet,
+          ...(caps?.focusMode?.includes("single-shot")
+            ? [{ focusMode: "single-shot" } as unknown as MediaTrackConstraintSet]
+            : []),
+        ],
+      });
+    } catch {
+      // The camera declined. The ring already told the user something happened.
+    }
+  }, []);
+
   const toggleTorch = useCallback(async () => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
@@ -901,6 +964,21 @@ export default function CardScanner({
         <div className={styles.fullBar}>
           <span className={styles.fullTitle}>Scanning</span>
           <div className={styles.fullBarActions}>
+            {sets && sets.length > 0 && onSetChange && (
+              <select
+                className={styles.fullBarSelect}
+                value={setId}
+                aria-label="Limit scanning to one set"
+                onChange={(e) => onSetChange(e.target.value)}
+              >
+                <option value="">Any set</option>
+                {sets.map((set) => (
+                  <option key={set.id} value={set.id}>
+                    {set.name}
+                  </option>
+                ))}
+              </select>
+            )}
             {torchable && (
               <button
                 type="button"
@@ -925,8 +1003,23 @@ export default function CardScanner({
         </div>
       )}
 
-      <div className={fullscreen ? styles.viewportFull : styles.viewport}>
+      {/* The whole viewfinder is the focus target. Not a <button>, because it
+          contains the guide and the banner and must not swallow their
+          semantics; the keyboard path is the Photo and Close buttons. */}
+      <div
+        className={fullscreen ? styles.viewportFull : styles.viewport}
+        onPointerDown={(e) => void focusAt(e.clientX, e.clientY)}
+      >
         <video ref={videoRef} className={styles.video} playsInline muted />
+        {focusRing && (
+          <span
+            key={focusRing.at}
+            className={styles.focusRing}
+            style={{ left: focusRing.x, top: focusRing.y }}
+            aria-hidden="true"
+            onAnimationEnd={() => setFocusRing(null)}
+          />
+        )}
         <div
           ref={guideRef}
           className={`${styles.guide} ${

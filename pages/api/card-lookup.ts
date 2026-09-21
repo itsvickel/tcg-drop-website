@@ -470,6 +470,37 @@ async function sharedName(config: TcgConfig, ids: string[]): Promise<string | nu
   return agreed;
 }
 
+/**
+ * Narrow scanned candidates to a set the user says they are working through.
+ *
+ * Reprints are the one thing the picture cannot settle: two printings of the
+ * same artwork are the same 64 bits, so the scanner correctly refuses to pick
+ * between them and falls back to searching the name. That is right in general
+ * and needlessly cautious when somebody is going through one set's box and has
+ * said so — the collector number would settle it, and so does the set.
+ *
+ * Applied only as a narrowing. If none of the candidates are in the chosen set,
+ * the full list is returned unchanged rather than nothing: a stray card in the
+ * box should still scan, not silently fail because it came from elsewhere.
+ */
+async function narrowToSet(
+  config: TcgConfig,
+  ids: string[],
+  setId: string | null
+): Promise<string[]> {
+  if (!setId || ids.length < 2) return ids;
+  let index;
+  try {
+    index = await loadCardIndex(config);
+  } catch {
+    return ids;
+  }
+  const wanted = setId.toLowerCase();
+  const setById = new Map(index.cards.map((c) => [c.id, c.setId.toLowerCase()]));
+  const inSet = ids.filter((id) => setById.get(id) === wanted);
+  return inSet.length > 0 ? inSet : ids;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<LookupResponse | { error: string }>
@@ -552,10 +583,27 @@ export default async function handler(
   const fromHashes = scannedHashes.length
     ? await cardsForHashes(config, scannedHashes)
     : [];
+  // A set the user is working through collapses reprint ties before anything
+  // else looks at them, which is the whole reason for offering the filter.
+  const narrowed = await narrowToSet(config, fromHashes, setId);
+  /**
+   * Whether the scanned card actually belongs to the chosen set.
+   *
+   * It decides whether the set may also filter the results. Narrowing falls
+   * back to every candidate when none are in the set, but leaving the filter on
+   * after that searched the card's name *within* a set it is not in and
+   * returned nothing — so a stray card in the box read as a failed scan rather
+   * than as a card from somewhere else. The filter is dropped in that case: the
+   * user is told what they are holding, which is what they asked.
+   */
+  const scanIsInSet = fromHashes.length > 0 && narrowed.length < fromHashes.length;
+  const scanSetFilter =
+    fromHashes.length > 0 && !scanIsInSet && narrowed.length > 1 ? null : setId;
+
   // One card is a pin; several mean the artwork is shared and the printing has
   // to be settled by name and number.
-  const scannedId = cardId ?? (fromHashes.length === 1 ? fromHashes[0] : null);
-  const candidates = fromHashes.length > 1 ? fromHashes : tiedIds;
+  const scannedId = cardId ?? (narrowed.length === 1 ? narrowed[0] : null);
+  const candidates = narrowed.length > 1 ? narrowed : tiedIds;
 
   // A tied artwork match is turned into an ordinary name search, so the user
   // sees every printing of the card they are holding rather than nothing.
@@ -566,7 +614,8 @@ export default async function handler(
     const { found: resolved, total, correctedTo, sets } = scannedId
       ? await resolveById(config, scannedId, fx)
       : await resolveMatches(
-          config, tiedName ?? name, number, setTotal, fx, offset, { setId, sort }
+          config, tiedName ?? name, number, setTotal, fx, offset,
+          { setId: scanSetFilter, sort }
         );
 
     // Applied here rather than inside each resolver, because there are three

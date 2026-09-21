@@ -1005,3 +1005,79 @@
 @media (prefers-reduced-motion: reduce) {
   .banner { animation: none; }
 }
+
+/* Tap-to-focus acknowledgement.
+   Phone autofocus hunts badly on a card at arm's length — a flat rectangle in
+   front of a busy background — so a tap is the way out. Support for actually
+   moving the focus is thin, so the ring is shown regardless: a control that
+   silently does nothing on half of devices is worse than one that always
+   acknowledges the tap. */
+.focusRing {
+  position: absolute;
+  width: 62px;
+  height: 62px;
+  margin: -31px 0 0 -31px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: focusPulse 620ms ease-out forwards;
+}
+
+@keyframes focusPulse {
+  0%   { transform: scale(1.5); opacity: 0; }
+  30%  { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focusRing { animation-duration: 300ms; }
+}
+
+/* ── Condition grading, in the detail sheet ─────────────────────────────── */
+.grade { margin-top: 12px; }
+
+.gradeRow { display: flex; gap: 6px; }
+
+.gradeBtn {
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #8b949e;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.gradeBtn:hover { border-color: #8b949e; color: #c9d1d9; }
+
+.gradeBtnOn {
+  border-color: var(--game-border, #58a6ff);
+  background: var(--game-bg, rgba(88, 166, 255, 0.14));
+  color: var(--game-text, #58a6ff);
+}
+
+.gradeNote {
+  margin: 7px 0 0;
+  font-size: 0.74rem;
+  color: #8b949e;
+  line-height: 1.45;
+}
+
+.historyActions { display: flex; gap: 7px; }
+
+/* The set picker, in the viewfinder bar. Sized so a long set name truncates
+   rather than pushing Close off the screen on a narrow phone. */
+.fullBarSelect {
+  max-width: 34vw;
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #c9d1d9;
+  border-radius: 8px;
+  padding: 8px 9px;
+  font-size: 0.78rem;
+  min-height: 40px;
+  cursor: pointer;
+}

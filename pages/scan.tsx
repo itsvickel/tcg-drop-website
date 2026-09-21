@@ -11,11 +11,17 @@ import { buildLookupQuery } from "../lib/cardLookup";
 import {
   addToHistory,
   clearHistory,
+  conditionOf,
+  entryKey,
+  entryValue,
   historyValue,
   loadHistory,
   relativeTime,
+  setCondition,
   type ScanHistoryEntry,
 } from "../lib/scanHistory";
+import { CONDITIONS, CONDITION_LABELS, type Condition } from "../lib/cardCondition";
+import { downloadCsv } from "../lib/scanExport";
 import type { CardMatch, LookupResponse } from "../lib/cardLookup";
 import { TCG_CONFIGS, type TcgSlug } from "../lib/tcg.config";
 import { SITE_URL } from "../lib/siteUrl";
@@ -90,6 +96,16 @@ export default function ScanPage() {
    * on the strip.
    */
   const [banner, setBanner] = useState<string | null>(null);
+  /**
+   * Which stored scan the detail sheet is showing.
+   *
+   * Needed because grading writes back to that entry, and the lookup result on
+   * its own does not say which row it came from — two printings of one card are
+   * separate rows with separate grades.
+   */
+  const [openEntry, setOpenEntry] = useState<ScanHistoryEntry | null>(null);
+  /** Every set in this game, for the scanner's set picker. */
+  const [allSets, setAllSets] = useState<{ id: string; name: string }[]>([]);
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * The cards scanned on this device, newest first.
@@ -148,6 +164,19 @@ export default function ScanPage() {
       document.body.style.overflow = previous;
     };
   }, [cameraOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/card-sets?tcg=${tcg}`)
+      .then((r) => r.json())
+      .then((d: { sets?: { id: string; name: string }[] }) => {
+        if (!cancelled) setAllSets(d.sets ?? []);
+      })
+      .catch(() => undefined); // No picker is a fine outcome.
+    return () => {
+      cancelled = true;
+    };
+  }, [tcg]);
 
   useEffect(() => {
     const warm = new AbortController();
@@ -310,7 +339,11 @@ export default function ScanPage() {
       setScanAmbiguous(!!tiedHashes?.length);
       setQuery(byArt ? "" : text);
       void runLookup(byArt ? "" : text, tcg, 0, {
-        setId: byArt ? "" : setId,
+        // Passed for a scan too, now that the server uses it to narrow reprint
+        // ties rather than to filter results. It narrows only — a card from
+        // another set still scans, because narrowing to nothing returns
+        // everything rather than nothing.
+        setId,
         sort,
         stocked: stockedOnly,
         cardHash,
@@ -334,6 +367,7 @@ export default function ScanPage() {
       // detail sheet belongs — not after every scan.
       setScanSheet(true);
       setScanAmbiguous(!!entry.hashes?.length);
+      setOpenEntry(entry);
       setSetId("");
       setQuery(entry.query ?? entry.name);
       void runLookup(entry.query ?? entry.name, tcg, 0, {
@@ -452,6 +486,9 @@ export default function ScanPage() {
             rescanKey={rescanKey}
             fullscreen
             banner={banner}
+            sets={allSets}
+            setId={setId}
+            onSetChange={setSetId}
             footer={<ScanStrip history={history} onPick={reopen} />}
             onClose={() => {
               setCameraOpen(false);
@@ -466,6 +503,13 @@ export default function ScanPage() {
             error={error}
             result={result}
             ambiguous={scanAmbiguous}
+            entry={openEntry}
+            onGrade={(condition) => {
+              if (!openEntry) return;
+              const next = setCondition(entryKey(openEntry), condition);
+              setHistory(next);
+              setOpenEntry({ ...openEntry, condition });
+            }}
             onScanAnother={() => {
               setScanSheet(false);
               setRescanKey((n) => n + 1);
@@ -646,13 +690,28 @@ export default function ScanPage() {
               <h2 id="scan-history-heading" className={styles.historyHeading}>
                 Recent scans
               </h2>
-              <button
-                type="button"
-                className={styles.historyClear}
-                onClick={() => setHistory(clearHistory())}
-              >
-                Clear
-              </button>
+              <span className={styles.historyActions}>
+                <button
+                  type="button"
+                  className={styles.historyClear}
+                  onClick={() => {
+                    // Says so rather than appearing to do nothing when the
+                    // browser refuses the download.
+                    if (!downloadCsv(history)) {
+                      setError("Could not build the export on this browser.");
+                    }
+                  }}
+                >
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  className={styles.historyClear}
+                  onClick={() => setHistory(clearHistory())}
+                >
+                  Clear
+                </button>
+              </span>
             </div>
             {/* Stored on this device only — no account, and nothing leaves it.
                 The total says what it does not know, because roughly a fifth of
@@ -803,6 +862,8 @@ function ScanSheet({
   error,
   result,
   ambiguous,
+  entry,
+  onGrade,
   onScanAnother,
   onDone,
 }: {
@@ -811,6 +872,9 @@ function ScanSheet({
   result: LookupResponse | null;
   /** The artwork was recognised but the printing was not — a reprint. */
   ambiguous: boolean;
+  /** The stored scan this sheet is showing, when opened from the strip. */
+  entry: ScanHistoryEntry | null;
+  onGrade: (condition: Condition) => void;
   onScanAnother: () => void;
   onDone: () => void;
 }) {
@@ -891,6 +955,41 @@ function ScanSheet({
                 )}
               </div>
             </div>
+
+            {/* Grading belongs here rather than in the strip: the strip is
+                thumbnails at a glance, and this is the moment someone is
+                actually looking at one card and deciding about it. */}
+            {entry && top.marketCad !== null && (
+              <div className={styles.grade}>
+                <div className={styles.gradeRow} role="group" aria-label="Condition">
+                  {CONDITIONS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      title={CONDITION_LABELS[c]}
+                      aria-pressed={conditionOf(entry) === c}
+                      className={`${styles.gradeBtn} ${
+                        conditionOf(entry) === c ? styles.gradeBtnOn : ""
+                      }`}
+                      onClick={() => onGrade(c)}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+                <p className={styles.gradeNote}>
+                  {conditionOf(entry) === "NM" ? (
+                    <>Market prices are for Near Mint. Grade it to adjust.</>
+                  ) : (
+                    <>
+                      {CONDITION_LABELS[conditionOf(entry)]}:{" "}
+                      <strong>${(entryValue(entry) ?? 0).toFixed(2)} CAD</strong> estimated —
+                      a trade convention, not a quote.
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
 
             {extra > 0 && (
               <p className={styles.sheetMore}>
