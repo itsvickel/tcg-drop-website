@@ -1081,3 +1081,27 @@
   min-height: 40px;
   cursor: pointer;
 }
+
+/* Total and export together, at the right of the strip header. */
+.stripTotalRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.stripExport {
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #c9d1d9;
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  /* Smaller than the 44px elsewhere on purpose: this sits above a thumbnail
+     strip on a phone and a full-height button would eat the cards it exports.
+     Still comfortably tappable, and not something reached for mid-scan. */
+  min-height: 30px;
+}
+
+.stripExport:hover { border-color: var(--game-border, #58a6ff); color: var(--game-text, #58a6ff); }

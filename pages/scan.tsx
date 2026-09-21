@@ -489,7 +489,17 @@ export default function ScanPage() {
             sets={allSets}
             setId={setId}
             onSetChange={setSetId}
-            footer={<ScanStrip history={history} onPick={reopen} />}
+            footer={
+              <ScanStrip
+                history={history}
+                onPick={reopen}
+                onExport={() => {
+                  if (!downloadCsv(history)) {
+                    setError("Could not build the export on this browser.");
+                  }
+                }}
+              />
+            }
             onClose={() => {
               setCameraOpen(false);
               setScanSheet(false);
@@ -802,9 +812,11 @@ export default function ScanPage() {
 function ScanStrip({
   history,
   onPick,
+  onExport,
 }: {
   history: ScanHistoryEntry[];
   onPick: (entry: ScanHistoryEntry) => void;
+  onExport: () => void;
 }) {
   const { totalCad, priced } = historyValue(history);
 
@@ -817,9 +829,24 @@ function ScanStrip({
         <span className={styles.stripTitle}>
           Recent{history.length > 0 ? ` · ${history.length}` : ""}
         </span>
-        {priced > 0 && (
-          <span className={styles.stripTotal}>≈ ${totalCad.toFixed(2)} CAD</span>
-        )}
+        <span className={styles.stripTotalRow}>
+          {priced > 0 && (
+            <span className={styles.stripTotal}>≈ ${totalCad.toFixed(2)} CAD</span>
+          )}
+          {/* Next to the total rather than in the top bar: the export is about
+              the stack, and the stack is here. The top bar is also already
+              carrying a set picker, a torch and a close at 375px wide. */}
+          {history.length > 0 && (
+            <button
+              type="button"
+              className={styles.stripExport}
+              onClick={() => onExport()}
+              title="Download these scans as a spreadsheet"
+            >
+              Export
+            </button>
+          )}
+        </span>
       </div>
       {history.length === 0 ? (
         <p className={styles.stripEmpty}>Scanned cards collect here.</p>
