@@ -11,6 +11,7 @@ import { buildLookupQuery } from "../lib/cardLookup";
 import {
   addToHistory,
   clearHistory,
+  historyValue,
   loadHistory,
   relativeTime,
   type ScanHistoryEntry,
@@ -112,6 +113,23 @@ export default function ScanPage() {
   useEffect(() => {
     setHistory(loadHistory());
   }, []);
+
+  /**
+   * Hold the page still behind the fullscreen scanner.
+   *
+   * Without this, dragging anywhere over the viewfinder scrolls the page
+   * underneath it — so closing the camera drops you somewhere you never chose
+   * to be, and on iOS the rubber-band drags the whole scanner around while
+   * you are trying to hold a card steady.
+   */
+  useEffect(() => {
+    if (!cameraOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [cameraOpen]);
 
   useEffect(() => {
     const warm = new AbortController();
@@ -389,6 +407,8 @@ export default function ScanPage() {
             tcg={tcg}
             onRead={handleScan}
             rescanKey={rescanKey}
+            fullscreen
+            footer={<ScanStrip history={history} onPick={reopen} />}
             onClose={() => {
               setCameraOpen(false);
               setScanSheet(false);
@@ -590,10 +610,23 @@ export default function ScanPage() {
                 Clear
               </button>
             </div>
-            {/* Stored on this device only — no account, and nothing leaves it. */}
+            {/* Stored on this device only — no account, and nothing leaves it.
+                The total says what it does not know, because roughly a fifth of
+                the catalogue has no published price and a quiet sum would
+                report a stack as cheaper than it is. */}
             <p className={styles.historyNote}>
-              Kept on this device. Prices shown are from when you scanned; tap a
-              card to look it up again.
+              {(() => {
+                const { totalCad, priced, unpriced } = historyValue(history);
+                const worth =
+                  priced > 0
+                    ? `${priced} card${priced === 1 ? "" : "s"} worth about $${totalCad.toFixed(2)} CAD`
+                    : "No market price published for any of these yet";
+                const gap =
+                  unpriced > 0
+                    ? `, plus ${unpriced} with no published price`
+                    : "";
+                return `${worth}${gap}. Kept on this device; prices are from when you scanned. Tap a card to look it up again.`;
+              })()}
             </p>
             <ul className={styles.historyList}>
               {history.map((entry) => (
@@ -655,6 +688,62 @@ export default function ScanPage() {
  * immediate and the price fills in behind it. The primary action is scanning
  * the next card, because anyone holding one card is usually holding a stack.
  */
+/**
+ * Recent scans along the bottom of the fullscreen scanner.
+ *
+ * Going through a stack means the last few cards are the ones you want to
+ * glance back at, and leaving the camera to find them breaks the rhythm. Thumbnails
+ * rather than rows, because this is a strip at the bottom of a viewfinder and
+ * the card art is what anyone recognises at that size.
+ */
+function ScanStrip({
+  history,
+  onPick,
+}: {
+  history: ScanHistoryEntry[];
+  onPick: (entry: ScanHistoryEntry) => void;
+}) {
+  const { totalCad, priced } = historyValue(history);
+
+  return (
+    <div className={styles.strip}>
+      <div className={styles.stripHead}>
+        <span className={styles.stripTitle}>
+          This session{history.length > 0 ? ` · ${history.length}` : ""}
+        </span>
+        {priced > 0 && (
+          <span className={styles.stripTotal}>≈ ${totalCad.toFixed(2)} CAD</span>
+        )}
+      </div>
+      {history.length === 0 ? (
+        <p className={styles.stripEmpty}>Scanned cards collect here.</p>
+      ) : (
+        <div className={styles.stripRow}>
+          {history.map((entry) => (
+            <button
+              key={`${entry.at}-${entry.name}`}
+              type="button"
+              className={styles.stripItem}
+              onClick={() => onPick(entry)}
+              title={`${entry.name} — ${entry.setName}`}
+            >
+              {entry.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className={styles.stripArt} src={entry.imageUrl} alt={entry.name} />
+              ) : (
+                <span className={styles.stripArtEmpty} aria-hidden="true" />
+              )}
+              <span className={styles.stripPrice}>
+                {entry.marketCad !== null ? `$${entry.marketCad.toFixed(0)}` : "—"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScanSheet({
   loading,
   error,

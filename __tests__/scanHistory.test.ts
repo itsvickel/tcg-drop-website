@@ -9,6 +9,7 @@
  */
 import {
   addToHistory,
+  historyValue,
   clearHistory,
   entryKey,
   loadHistory,
@@ -160,5 +161,37 @@ describe("relativeTime", () => {
   it("does not say a scan happened in the future", () => {
     // Clock skew, or a device whose time was corrected between scans.
     expect(relativeTime(now + 60_000, now)).toBe("just now");
+  });
+});
+
+describe("historyValue", () => {
+  it("adds up what it knows and counts what it does not", () => {
+    // A fifth of the catalogue has no published price. Summing the rest
+    // silently would report a stack as cheaper than it is, with nothing on
+    // screen to explain the gap.
+    const value = historyValue([
+      card({ marketCad: 503.82 }),
+      card({ marketCad: 12.5 }),
+      card({ marketCad: null }),
+    ]);
+    expect(value).toEqual({ totalCad: 516.32, priced: 2, unpriced: 1 });
+  });
+
+  it("treats a zero price as unknown, not as free", () => {
+    expect(historyValue([card({ marketCad: 0 })])).toEqual({
+      totalCad: 0,
+      priced: 0,
+      unpriced: 1,
+    });
+  });
+
+  it("does not drift over a long list", () => {
+    // Rounding each row before adding loses a cent every few cards.
+    const entries = Array.from({ length: 60 }, () => card({ marketCad: 0.005 }));
+    expect(historyValue(entries).totalCad).toBe(0.3);
+  });
+
+  it("is zero for an empty history", () => {
+    expect(historyValue([])).toEqual({ totalCad: 0, priced: 0, unpriced: 0 });
   });
 });

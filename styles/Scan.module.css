@@ -498,7 +498,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 40;
+  /* Over the fullscreen scanner, which is over the site navs. */
+  z-index: 210;
   padding: 0 12px calc(12px + env(safe-area-inset-bottom));
   display: flex;
   justify-content: center;
@@ -782,4 +783,191 @@
   border-color: rgba(70, 220, 130, 0.95);
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 14px rgba(70, 220, 130, 0.55);
   transition: border-color 120ms linear;
+}
+
+/* ── Fullscreen scanner ─────────────────────────────────────────────────────
+   A guide that fills the screen is one people fill with the card, and how well
+   the card is framed is what decides whether it matches — a card at 85% of the
+   frame instead of all of it goes from matching every time to not at all. The
+   small in-page preview was sampling the same full-resolution video; it was
+   just harder to aim. */
+.scannerFull {
+  position: fixed;
+  inset: 0;
+  /* Above the site's sticky navs, which sit at 99 and 100. Below them the top
+     bar was painted over and there was no way to close the camera. */
+  z-index: 200;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  /* Notches and home indicators. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.fullBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(13, 17, 23, 0.9);
+}
+
+.fullTitle {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.fullBarActions { display: flex; gap: 7px; }
+
+.fullBarBtn, .fullBarClose {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #c9d1d9;
+}
+
+.fullBarClose {
+  border-color: var(--game-border, #58a6ff);
+  background: var(--game-bg, rgba(88, 166, 255, 0.14));
+  color: var(--game-text, #58a6ff);
+}
+
+/* Takes every pixel left between the bar and the history strip. */
+.viewportFull {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+.viewportFull .video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The guide is sized off height so it stays card-shaped on any screen, and
+   capped by width so it cannot overflow a narrow one. */
+.viewportFull .guide {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: min(78%, calc(86vw * 7 / 5));
+  width: auto;
+  aspect-ratio: 5 / 7;
+}
+
+.fullHint {
+  flex: none;
+  margin: 0;
+  padding: 9px 14px;
+  text-align: center;
+  font-size: 0.86rem;
+  color: #e6edf3;
+  background: rgba(13, 17, 23, 0.9);
+  min-height: 38px;
+}
+
+/* The file input still has to exist in fullscreen; its button lives in the bar. */
+.fileOnly { height: 0; overflow: hidden; }
+
+/* ── History strip along the bottom of the fullscreen scanner ────────────── */
+.strip {
+  flex: none;
+  background: rgba(13, 17, 23, 0.94);
+  border-top: 1px solid #21262d;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+}
+
+.stripHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 2px 7px;
+}
+
+.stripTitle {
+  font-size: 0.74rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stripTotal {
+  font-size: 0.74rem;
+  color: #c9d1d9;
+  font-variant-numeric: tabular-nums;
+}
+
+.stripRow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  /* Snap so a flicked strip lands on a card rather than between two. */
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.stripItem {
+  flex: none;
+  scroll-snap-align: start;
+  width: 62px;
+  border: 1px solid #30363d;
+  background: #161b22;
+  border-radius: 8px;
+  padding: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.stripItem:hover { border-color: var(--game-border, #58a6ff); }
+
+.stripArt, .stripArtEmpty {
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #0d1117;
+  display: block;
+}
+
+.stripPrice {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.66rem;
+  color: #8b949e;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stripEmpty {
+  margin: 2px;
+  font-size: 0.76rem;
+  color: #8b949e;
+}
+
+/* The OCR read zones, much quieter at fullscreen size.
+   They mark where the title and collector number are read from, which is worth
+   showing — it is how someone knows the card is sitting square. But OCR is the
+   fallback now, not the main event, and at full size the filled blocks covered
+   half the viewfinder and read as though the camera were broken. Hairlines
+   say the same thing without competing with the card. */
+.viewportFull .band {
+  background: transparent;
+  border-top: 1px dashed rgba(88, 166, 255, 0.4);
+  border-bottom: 1px dashed rgba(88, 166, 255, 0.4);
 }

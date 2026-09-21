@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { parseScan, scanToQuery } from "../lib/cardLookup";
 import { gradeFrame, stretchRange, type FrameGrade } from "../lib/frameQuality";
 import { bestMatch, isConfident, looksLikeName } from "../lib/fuzzyName";
@@ -122,6 +122,21 @@ type Props = {
    * Changing this clears the memory of what was last read.
    */
   rescanKey?: number;
+  /**
+   * Fill the screen rather than sitting in the page.
+   *
+   * Worth being precise about what this does and does not fix. It does not give
+   * the matcher more to work with: frames are cropped from the camera's own
+   * pixels — 1920 wide — and mapped through the guide, so a small preview was
+   * already sampling full resolution. What it changes is aiming. A guide that
+   * fills the screen is one people naturally fill with the card, and how well
+   * the card is framed genuinely does decide whether it matches: measured, a
+   * card filling 85% of the frame instead of all of it goes from matching every
+   * time to not matching at all.
+   */
+  fullscreen?: boolean;
+  /** Recent scans, rendered along the bottom while fullscreen. */
+  footer?: ReactNode;
 };
 
 type Phase = "starting" | "scanning" | "error";
@@ -132,7 +147,14 @@ type Worker = {
   terminate: () => Promise<unknown>;
 };
 
-export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Props) {
+export default function CardScanner({
+  tcg,
+  onRead,
+  onClose,
+  rescanKey = 0,
+  fullscreen = false,
+  footer,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -851,8 +873,36 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
   }, [torchOn]);
 
   return (
-    <div className={styles.scanner}>
-      <div className={styles.viewport}>
+    <div className={fullscreen ? styles.scannerFull : styles.scanner}>
+      {fullscreen && (
+        <div className={styles.fullBar}>
+          <span className={styles.fullTitle}>Scanning</span>
+          <div className={styles.fullBarActions}>
+            {torchable && (
+              <button
+                type="button"
+                className={styles.fullBarBtn}
+                onClick={toggleTorch}
+                aria-pressed={torchOn}
+              >
+                {torchOn ? "Light off" : "Light on"}
+              </button>
+            )}
+            <button
+              type="button"
+              className={styles.fullBarBtn}
+              onClick={() => fileRef.current?.click()}
+            >
+              Photo
+            </button>
+            <button type="button" className={styles.fullBarClose} onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={fullscreen ? styles.viewportFull : styles.viewport}>
         <video ref={videoRef} className={styles.video} playsInline muted />
         <div
           ref={guideRef}
@@ -873,14 +923,16 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
           explain a failure, and there isn't one. Everything shown here is now a
           real card name rather than whatever OCR produced, so there is no
           longer a state in which this line shows gibberish. */}
-      <p className={styles.hint} aria-live="polite">
+      <p className={fullscreen ? styles.fullHint : styles.hint} aria-live="polite">
         {reading ||
           message ||
           quality ||
-          "Hold the card inside the frame — it reads continuously, nothing to press."}
+          (fullscreen
+            ? "Fill the frame with the card and hold still."
+            : "Hold the card inside the frame — it reads continuously, nothing to press.")}
       </p>
 
-      {phase === "scanning" && artState === "loading" && (
+      {!fullscreen && phase === "scanning" && artState === "loading" && (
         <p className={styles.privacy}>
           Loading card pictures — matching by artwork starts as soon as they
           arrive. Reading the title until then.
@@ -891,14 +943,14 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
           not being able to tell whether the scanner was doing anything. A
           catalogue size is concrete evidence that the good path is live, in a
           way that "scanning…" is not. */}
-      {phase === "scanning" && artState === "ready" && (
+      {!fullscreen && phase === "scanning" && artState === "ready" && (
         <p className={styles.privacy}>
           Matching against {artCount.toLocaleString()} card pictures — hold the
           card still and it will find it.
         </p>
       )}
 
-      {phase === "scanning" && artState === "unavailable" && (
+      {!fullscreen && phase === "scanning" && artState === "unavailable" && (
         <p className={styles.privacy}>
           {vocabularyReady
             ? "Card pictures unavailable for this game, so this is reading the title. Hold steady and keep glare off the name."
@@ -908,7 +960,7 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
 
       {photoNote && <p className={styles.privacy}>{photoNote}</p>}
 
-      <div className={styles.scanActions}>
+      <div className={fullscreen ? styles.fileOnly : styles.scanActions}>
         <input
           ref={fileRef}
           type="file"
@@ -921,27 +973,35 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
             if (file) void readPhoto(file);
           }}
         />
-        <button
-          type="button"
-          className={styles.secondaryBtn}
-          onClick={() => fileRef.current?.click()}
-        >
-          Use a photo
-        </button>
-        {torchable && (
-          <button type="button" className={styles.secondaryBtn} onClick={toggleTorch}>
-            {torchOn ? "Light off" : "Light on"}
-          </button>
+        {!fullscreen && (
+          <>
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              onClick={() => fileRef.current?.click()}
+            >
+              Use a photo
+            </button>
+            {torchable && (
+              <button type="button" className={styles.secondaryBtn} onClick={toggleTorch}>
+                {torchOn ? "Light off" : "Light on"}
+              </button>
+            )}
+            <button type="button" className={styles.secondaryBtn} onClick={onClose}>
+              Close camera
+            </button>
+          </>
         )}
-        <button type="button" className={styles.secondaryBtn} onClick={onClose}>
-          Close camera
-        </button>
       </div>
 
-      <p className={styles.privacy}>
-        The picture never leaves your phone — the text is read here in the
-        browser, and only that text is sent to look the card up.
-      </p>
+      {fullscreen && footer}
+
+      {!fullscreen && (
+        <p className={styles.privacy}>
+          The picture never leaves your phone — the text is read here in the
+          browser, and only that text is sent to look the card up.
+        </p>
+      )}
     </div>
   );
 }

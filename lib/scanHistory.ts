@@ -152,3 +152,33 @@ export function relativeTime(at: number, now = Date.now()): string {
   if (hours < 24) return `${hours} h ago`;
   return `${Math.round(hours / 24)} d ago`;
 }
+
+/**
+ * What the scanned cards are worth, and how much of that we actually know.
+ *
+ * Someone going through a stack wants the total, and the honest version of that
+ * number has to say what it is missing: a fifth of the Pokemon catalogue has no
+ * published market price, and silently summing the rest would report a pile as
+ * cheaper than it is with nothing to indicate why. The count of unpriced cards
+ * is returned alongside so the UI can say so.
+ *
+ * History is one row per card — a re-scan replaces its earlier row — so this is
+ * the value of the distinct cards seen, not of every time one was held up.
+ */
+export function historyValue(
+  entries: ScanHistoryEntry[]
+): { totalCad: number; priced: number; unpriced: number } {
+  let totalCad = 0;
+  let priced = 0;
+  let unpriced = 0;
+  for (const entry of entries) {
+    if (typeof entry.marketCad === "number" && entry.marketCad > 0) {
+      totalCad += entry.marketCad;
+      priced += 1;
+    } else {
+      unpriced += 1;
+    }
+  }
+  // Rounded once at the end. Summing pre-rounded cents drifts over sixty rows.
+  return { totalCad: Math.round(totalCad * 100) / 100, priced, unpriced };
+}
