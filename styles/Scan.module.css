@@ -768,3 +768,18 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* The guide frame as a progress signal. Recognition is fast, but a viewfinder
+   that shows nothing while it works looks the same as one that is broken —
+   and the colour also tells the user to hold still, which is the only thing
+   they can usefully do. */
+.guideClose {
+  border-color: rgba(240, 200, 90, 0.95);
+  transition: border-color 120ms linear;
+}
+
+.guideLocked {
+  border-color: rgba(70, 220, 130, 0.95);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 14px rgba(70, 220, 130, 0.55);
+  transition: border-color 120ms linear;
+}

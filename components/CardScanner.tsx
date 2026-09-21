@@ -182,6 +182,19 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
    * permanent limitation, made during a temporary one.
    */
   const [artState, setArtState] = useState<"loading" | "ready" | "unavailable">("loading");
+  /**
+   * How close the picture currently is to a card, for the guide frame.
+   *
+   * Recognition is fast now, but "fast" and "feels fast" are different things:
+   * a frame that shows nothing while the scanner works looks identical to a
+   * frame that is broken. Colouring the guide as the match tightens turns the
+   * wait into progress, and tells the user which way to move the card.
+   *
+   * Three states rather than a number, and only written when it changes, so
+   * checking the picture eight times a second does not re-render at 8Hz.
+   */
+  const [lock, setLock] = useState<"idle" | "close" | "locked">("idle");
+  const lastLockRef = useRef<typeof lock>("idle");
   const [torchOn, setTorchOn] = useState(false);
   const [torchable, setTorchable] = useState(false);
   const [photoNote, setPhotoNote] = useState<string | null>(null);
@@ -200,6 +213,13 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
    * pass and must not restart when it lands.
    */
   const artRef = useRef<HashTable>(EMPTY_HASH_TABLE);
+
+  /** Set the lock indicator, dropping no-op updates. */
+  const setLockState = useCallback((next: "idle" | "close" | "locked") => {
+    if (lastLockRef.current === next) return;
+    lastLockRef.current = next;
+    setLock(next);
+  }, []);
 
   /** Write a status line, but only when it has actually changed. */
   const setReading = useCallback((next: string) => {
@@ -600,6 +620,7 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
 
       if (outcome === "pinned") {
         failingSince = 0;
+        setLockState("locked");
         const strong =
           art!.distance <= INSTANT_MAX_DISTANCE && art!.margin >= INSTANT_MIN_MARGIN;
         setReading("Matched the picture — looking it up…");
@@ -611,9 +632,14 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
         // The server turns these candidates into a name search, so the user
         // gets every printing of the card in their hand.
         failingSince = 0;
+        setLockState("locked");
         setReading("Matched the picture — finding the printing…");
         offer(`ties:${art!.ties.join(",")}`, art!.hash, false, undefined, art!.ties);
       } else {
+        // "Close" is generous on purpose. It is not a claim about the card —
+        // it says the frame is worth holding still, which is the only thing
+        // the user can act on.
+        setLockState(art && art.distance <= 16 ? "close" : "idle");
         if (!failingSince) failingSince = Date.now();
         // Detached on purpose: awaiting this is what used to stop the picture
         // being checked. One at a time, because two Tesseract passes at once
@@ -789,7 +815,13 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
     <div className={styles.scanner}>
       <div className={styles.viewport}>
         <video ref={videoRef} className={styles.video} playsInline muted />
-        <div ref={guideRef} className={styles.guide} aria-hidden="true">
+        <div
+          ref={guideRef}
+          className={`${styles.guide} ${
+            lock === "locked" ? styles.guideLocked : lock === "close" ? styles.guideClose : ""
+          }`}
+          aria-hidden="true"
+        >
           <span className={`${styles.band} ${styles.bandTop}`} />
           <span className={`${styles.band} ${styles.bandBottom}`} />
         </div>
