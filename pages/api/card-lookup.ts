@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getTcgConfig, type TcgConfig } from "../../lib/tcg.config";
-import { loadApiResponseCached } from "../../lib/serverProducts";
+import { loadListingsCached } from "../../lib/serverProducts";
 import { fetchGameBytes, fetchGameData } from "../../lib/dataFetcher";
 import { getClientIp, rateLimit } from "../../lib/rateLimit";
 import {
@@ -50,6 +50,18 @@ import {
  * A scanner that only recognised cards we had listings for would fail on almost
  * every scan, so identity never depends on our own catalogue.
  */
+
+/**
+ * How long the lookup waits for our Canadian listings before answering without
+ * them.
+ *
+ * Chosen from the measurement rather than by feel: the feed takes about 6.7
+ * seconds to build on a cold server and 0.2 seconds once cached, with nothing
+ * in between. So any budget comfortably above the warm figure includes the
+ * listings in every steady-state request, and any budget below the cold figure
+ * spares the first one a long wait for something the answer does not depend on.
+ */
+const LISTINGS_BUDGET_MS = 2000;
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 /** A miss is remembered only long enough to absorb a repeated keystroke. */
@@ -566,9 +578,25 @@ export default async function handler(
 
     // Our own listings are a join onto whatever the provider identified, and a
     // feed outage must not stop the lookup from identifying the card.
-    let products: Awaited<ReturnType<typeof loadApiResponseCached>>["products"] = [];
+    //
+    // Time-boxed, because a cold server spends seconds building this feed and
+    // a scan is what hits a cold server — the result sheet sits there spinning
+    // through all of it. Measured: 6.7s for the first lookup, 0.2s once warm.
+    //
+    // Giving up on the deadline costs the Canadian listings on that one
+    // request, not the answer: the card, its set, its number and its market
+    // price are all already in hand. And the load is not cancelled, only
+    // stopped being waited on — it lands in the cache a moment later, so the
+    // next scan has listings. Waiting instead would mean the first person to
+    // scan anything pays six seconds to watch a spinner.
+    let products: Awaited<ReturnType<typeof loadListingsCached>>["products"] = [];
     try {
-      products = (await loadApiResponseCached(config)).products;
+      const feed = await Promise.race([
+        loadListingsCached(config),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), LISTINGS_BUDGET_MS)),
+      ]);
+      if (feed) products = feed.products;
+      else console.warn("[api/card-lookup] listings not ready inside the budget");
     } catch (err) {
       console.warn("[api/card-lookup] listings unavailable:", err);
     }

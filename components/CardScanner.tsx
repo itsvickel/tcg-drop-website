@@ -61,8 +61,39 @@ const CODE_BAND = { top: 0.8, height: 0.2, target: 380 };
 /** Readings that must agree before a result is accepted. */
 const CONSENSUS = 2;
 
-/** Breather between passes, so the phone stays responsive and cool. */
-const LOOP_PAUSE_MS = 250;
+/**
+ * How often the picture is checked.
+ *
+ * Fingerprinting a frame costs about 6ms against the whole catalogue, so this
+ * can run many times a second and the only reason not to is heat. It used to
+ * run at best every 250ms and in practice far less often, because it shared a
+ * loop with OCR and had to wait for it.
+ */
+const ART_INTERVAL_MS = 120;
+
+/**
+ * How long the picture has to keep failing before the title is worth reading.
+ *
+ * OCR is the slow path — one to two seconds — and it is only the right answer
+ * for a card we have no fingerprint for, or one the camera cannot see well
+ * enough to match. Starting it the instant a single frame misses meant it ran
+ * almost constantly, which is how it came to dominate.
+ */
+const OCR_AFTER_MS = 1200;
+
+/**
+ * A match good enough to act on from one frame.
+ *
+ * Consensus exists because a frame caught mid-motion can land near the wrong
+ * card, and repeating a mistake is far less likely than making one. But it also
+ * doubles the time to an answer, and it is not earning that for a match this
+ * strong: across 160 real degraded frames matched against the full 21,937-card
+ * catalogue, every match inside this band named the right card — 89 of the 160
+ * frames qualified, none wrongly. Anything weaker still waits for a second
+ * opinion.
+ */
+const INSTANT_MAX_DISTANCE = 6;
+const INSTANT_MIN_MARGIN = 8;
 
 /** Quiet zone around a crop. Tesseract reads a glyph flush to the edge wrong. */
 const BORDER_PX = 12;
@@ -108,6 +139,8 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
   const guideRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const runningRef = useRef(false);
+  /** True while a Tesseract pass is running, so only one runs at a time. */
+  const ocrBusyRef = useRef(false);
   /**
    * The callback, held in a ref.
    *
@@ -122,10 +155,19 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
   onReadRef.current = onRead;
   const recentRef = useRef<string[]>([]);
   const lastEmittedRef = useRef<string>("");
+  /**
+   * The last status written, so an unchanged one is not written again.
+   *
+   * The picture is now checked eight times a second. Calling setReading on
+   * every pass would re-render the whole scanner at that rate for a string that
+   * is nearly always identical — which on a phone is exactly the sort of
+   * background work that makes a viewfinder stutter.
+   */
+  const lastReadingRef = useRef<string>("");
 
   const [phase, setPhase] = useState<Phase>("starting");
   const [message, setMessage] = useState("Starting the camera…");
-  const [reading, setReading] = useState("");
+  const [reading, setReadingState] = useState("");
   const [quality, setQuality] = useState<string | null>(null);
   const [vocabularyReady, setVocabularyReady] = useState(false);
   const [artCount, setArtCount] = useState(0);
@@ -158,6 +200,13 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
    * pass and must not restart when it lands.
    */
   const artRef = useRef<HashTable>(EMPTY_HASH_TABLE);
+
+  /** Write a status line, but only when it has actually changed. */
+  const setReading = useCallback((next: string) => {
+    if (lastReadingRef.current === next) return;
+    lastReadingRef.current = next;
+    setReadingState(next);
+  }, []);
 
   /**
    * Where the on-screen guide box actually sits in the video's own pixels.
@@ -495,61 +544,98 @@ export default function CardScanner({ tcg, onRead, onClose, rescanKey = 0 }: Pro
    * acted on, because a frame caught mid-motion can land near the wrong card,
    * and repeating a mistake is much less likely than making one.
    */
-  const loop = useCallback(async () => {
-    while (runningRef.current) {
-      let key = "";
-      let query = "";
-      let cardHash: string | undefined;
-      let tiedHashes: string[] | undefined;
+  /**
+   * Accept a reading, once it has earned it.
+   *
+   * `instant` is for a picture match strong enough that a second opinion adds
+   * nothing but delay. Everything else has to be seen twice.
+   */
+  const offer = useCallback(
+    (
+      key: string,
+      query: string,
+      instant: boolean,
+      cardHash?: string,
+      tiedHashes?: string[]
+    ) => {
+      if (!key || key === lastEmittedRef.current) return;
 
+      const recent = recentRef.current;
+      recent.push(key);
+      if (recent.length > 4) recent.shift();
+
+      const agreeing = recent.filter((r) => r === key).length;
+      if (!instant && agreeing < CONSENSUS) return;
+
+      lastEmittedRef.current = key;
+      recentRef.current = [];
+      onReadRef.current(query, cardHash, tiedHashes);
+    },
+    []
+  );
+
+  /**
+   * The scan loop: the picture on a tight cadence, the title only when needed.
+   *
+   * These used to share one pass, and that was the single biggest thing making
+   * scanning feel slow. Fingerprinting a frame takes about 6ms; OCR takes one
+   * to two seconds. Running them in sequence meant that whenever the picture
+   * did not match — a card still being moved into place, a moment of blur — the
+   * loop disappeared into OCR and took no new frames at all for up to two and a
+   * half seconds. Steadying the card during that window bought nothing; the
+   * scanner simply was not looking.
+   *
+   * So the picture is now checked roughly eight times a second and never waits
+   * for anything, and OCR is started in the background, one at a time, only
+   * after the picture has been failing for over a second. The moment the card
+   * is held still it is recognised, whether or not a title read happens to be
+   * in flight.
+   */
+  const loop = useCallback(async () => {
+    let failingSince = 0;
+
+    while (runningRef.current) {
       const art = matchByArt();
       const outcome = artOutcome(art);
 
       if (outcome === "pinned") {
-        // The picture named one exact printing. That is a better answer than a
-        // name and number, which still has to be searched for.
-        cardHash = art!.hash;
-        key = `art:${art!.hash}`;
-        query = art!.hash;
+        failingSince = 0;
+        const strong =
+          art!.distance <= INSTANT_MAX_DISTANCE && art!.margin >= INSTANT_MIN_MARGIN;
         setReading("Matched the picture — looking it up…");
+        offer(`art:${art!.hash}`, art!.hash, strong, art!.hash, undefined);
       } else if (outcome === "ambiguous") {
         // The artwork is certain and the printing is not, which is what a
         // reprint looks like: a real Applin matches its own reference at 1 bit
         // and the Stellar Crown printing at 2, with the next card 16 bits away.
-        // Treating that as a failure — which is what this did — threw away a
-        // perfect read and fell back to OCR. The server turns these candidates
-        // into a name search, so the user gets every printing of the card in
-        // their hand and the collector number settles the rest.
-        tiedHashes = art!.ties;
-        key = `ties:${tiedHashes.join(",")}`;
-        query = art!.hash;
+        // The server turns these candidates into a name search, so the user
+        // gets every printing of the card in their hand.
+        failingSince = 0;
         setReading("Matched the picture — finding the printing…");
+        offer(`ties:${art!.ties.join(",")}`, art!.hash, false, undefined, art!.ties);
       } else {
-        try {
-          query = await readOnce();
-          key = query.toLowerCase();
-        } catch {
-          // A single failed pass is not worth telling anybody about; the next
-          // frame is a second away.
+        if (!failingSince) failingSince = Date.now();
+        // Detached on purpose: awaiting this is what used to stop the picture
+        // being checked. One at a time, because two Tesseract passes at once
+        // on a phone is slower than one.
+        if (!ocrBusyRef.current && Date.now() - failingSince >= OCR_AFTER_MS) {
+          ocrBusyRef.current = true;
+          void readOnce()
+            .then((query) => {
+              if (query) offer(query.toLowerCase(), query, false, undefined, undefined);
+            })
+            .catch(() => {
+              // A single failed pass is not worth telling anybody about.
+            })
+            .finally(() => {
+              ocrBusyRef.current = false;
+            });
         }
       }
 
-      if (key) {
-        const recent = recentRef.current;
-        recent.push(key);
-        if (recent.length > 4) recent.shift();
-
-        const agreeing = recent.filter((r) => r === key).length;
-        if (agreeing >= CONSENSUS && key !== lastEmittedRef.current) {
-          lastEmittedRef.current = key;
-          recentRef.current = [];
-          onReadRef.current(query, cardHash, tiedHashes);
-        }
-      }
-
-      await new Promise((r) => setTimeout(r, LOOP_PAUSE_MS));
+      await new Promise((r) => setTimeout(r, ART_INTERVAL_MS));
     }
-  }, [matchByArt, readOnce]);
+  }, [matchByArt, offer, readOnce]);
 
   useEffect(() => {
     // Forget the last reading so the same card can be scanned again. The

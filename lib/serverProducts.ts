@@ -139,6 +139,62 @@ export function loadApiResponseCached(config: TcgConfig): Promise<ApiResponse> {
   return value;
 }
 
+/**
+ * The retailer listings alone, without price history.
+ *
+ * The card lookup joins our Canadian listings onto whatever card was scanned or
+ * searched. It reads a listing's name, retailer, price, url, stock and category
+ * — and nothing else. It was getting there through the full feed, which parses
+ * price_history.json as well: 7.2MB of daily price points, on top of state.json's
+ * 8.9MB, to attach two prices to a card.
+ *
+ * That cost 8 seconds on a cold server, and a cold server is exactly the one a
+ * scan hits — the sheet sits there spinning through all of it. Skipping the
+ * history halves the work and changes nothing the lookup reads: the only fields
+ * it feeds are `history` and `history_days`, which no listing join touches.
+ *
+ * Cached separately from the full feed so the two do not evict each other; the
+ * pages that genuinely need history are unaffected.
+ */
+const LISTINGS_TTL_MS = 5 * 60 * 1000;
+const listingsCache = new Map<string, { expiresAt: number; value: Promise<ApiResponse> }>();
+
+async function loadListings(config: TcgConfig): Promise<ApiResponse> {
+  const repo = process.env.GITHUB_REPO;
+  const token = process.env.GITHUB_TOKEN;
+  const blobAvailable = !!process.env.BLOB_BASE_URL;
+  if (!blobAvailable && (!repo || !token)) {
+    throw new Error("Missing GITHUB_REPO or GITHUB_TOKEN environment variables.");
+  }
+
+  const p = config.githubDataPath;
+  const gitPath = (file: string) => (p ? `${p}/${file}` : file);
+  const load = <T,>(fileName: string): Promise<T> =>
+    blobAvailable
+      ? fetchGameData<T>(p, fileName)
+      : fetchFromGitHubRaw<T>(repo!, token!, gitPath(fileName));
+
+  const [state, enrichment] = await Promise.all([
+    load<StateJson>("state.json"),
+    load<SinglesEnrichmentJson | null>("singles_enrichment.json").catch(() => null),
+  ]);
+
+  // Empty history and no restock events: both only decorate products with
+  // fields the listing join does not read.
+  return toApiResponse(state, {}, { events: [] }, config, enrichment, null);
+}
+
+export function loadListingsCached(config: TcgConfig): Promise<ApiResponse> {
+  const hit = listingsCache.get(config.slug);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  const value = loadListings(config).catch((err) => {
+    listingsCache.delete(config.slug); // never cache a rejection
+    throw err;
+  });
+  listingsCache.set(config.slug, { expiresAt: Date.now() + LISTINGS_TTL_MS, value });
+  return value;
+}
+
 /** One product with its full history, for a statically generated detail page. */
 export async function loadProduct(config: TcgConfig, groupKey: string) {
   const feed = await loadApiResponseCached(config);

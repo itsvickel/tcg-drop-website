@@ -82,6 +82,26 @@ export default function ScanPage() {
     return () => document.documentElement.removeAttribute("data-tcg");
   }, [tcg]);
 
+  /**
+   * Warm the scanner's data while the page is being read.
+   *
+   * Nothing can be matched by picture until the fingerprint table has arrived,
+   * and it only started downloading when the camera opened — so the first
+   * seconds of every session were spent on the slow path, reading titles,
+   * however good the light was. Fetching it here means it is usually in the
+   * browser cache before the user has finished deciding to press the button.
+   *
+   * Deliberately unawaited and unhandled: this is a head start, not a
+   * dependency. The scanner fetches these itself and copes with either missing.
+   */
+  useEffect(() => {
+    const warm = new AbortController();
+    for (const path of ["card-hashes", "card-names"]) {
+      void fetch(`/api/${path}?tcg=${tcg}`, { signal: warm.signal }).catch(() => undefined);
+    }
+    return () => warm.abort();
+  }, [tcg]);
+
   const runLookup = useCallback(
     async (
       text: string,

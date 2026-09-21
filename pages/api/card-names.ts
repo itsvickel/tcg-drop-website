@@ -25,7 +25,16 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const cache = new Map<string, { expiresAt: number; names: string[] }>();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<Response>) {
-  res.setHeader("Cache-Control", "public, s-maxage=21600, stale-while-revalidate=86400");
+  // max-age as well as s-maxage, so the *browser* caches this and not just the
+  // CDN. Without it there is no browser freshness lifetime, the file is
+  // revalidated on every visit, and prefetching it while the page loads buys
+  // nothing — which matters because nothing can be matched until it has
+  // arrived. An hour against a table rebuilt weekly; a fingerprint that goes
+  // missing in between resolves to nothing rather than to the wrong card.
+  res.setHeader(
+    "Cache-Control",
+    "public, max-age=3600, s-maxage=21600, stale-while-revalidate=86400"
+  );
 
   const tcgParam = typeof req.query.tcg === "string" ? req.query.tcg : "pokemon";
   let config;
