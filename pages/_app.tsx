@@ -48,7 +48,11 @@ export default function App({ Component, pageProps }: AppProps) {
         {/* There is no favicon.ico in public/, so pointing at one just 404s on
             every page load. The SVG icon doubles as the tab icon. */}
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
+        {/* PNG, not the SVG. iOS ignores an SVG apple-touch-icon outright and
+            falls back to a screenshot of the page, so the home-screen icon was
+            a blurry thumbnail instead of the mark. 180px is what current
+            iPhones ask for. */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="TCG Drop" />
