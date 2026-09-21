@@ -26,6 +26,23 @@ type GameHealth = {
   stateAge: string;
   dataSource?: "blob" | "github";
   singles?: SinglesHealth | null;
+  scanner?: ScannerHealth | null;
+};
+
+/**
+ * What the scanner has to work with.
+ *
+ * Here because its failure is silent: with no fingerprint table the scanner
+ * quietly falls back to reading card titles and still looks like it is working,
+ * only worse. That took a long time to spot once. A count that is either large
+ * or zero makes it obvious.
+ */
+type ScannerHealth = {
+  fingerprints: number;
+  fingerprintsAgeHours: number | null;
+  catalogue: number;
+  priced: number;
+  pricedAgeHours: number | null;
 };
 
 type HealthData = {
@@ -113,6 +130,29 @@ export default function HealthPage() {
                 {game.dataSource && (
                   <span className={styles.summaryChip} title="Where the site read this data from">
                     Source: <strong>{game.dataSource === "blob" ? "⚡ Blob" : "GitHub"}</strong>
+                  </span>
+                )}
+                {game.scanner && (
+                  <span
+                    className={styles.summaryChip}
+                    title="Artwork fingerprints, catalogue size, and cards with a market price"
+                  >
+                    Scanner:{" "}
+                    <strong>{game.scanner.fingerprints.toLocaleString()}</strong> pictures
+                    {game.scanner.catalogue > 0 && (
+                      <> / {game.scanner.catalogue.toLocaleString()} cards</>
+                    )}
+                    {game.scanner.priced > 0 && (
+                      <> · {game.scanner.priced.toLocaleString()} priced</>
+                    )}
+                    {game.scanner.fingerprintsAgeHours !== null && (
+                      <>
+                        {" · "}
+                        {game.scanner.fingerprintsAgeHours < 48
+                          ? `${game.scanner.fingerprintsAgeHours}h ago`
+                          : `${Math.round(game.scanner.fingerprintsAgeHours / 24)}d ago`}
+                      </>
+                    )}
                   </span>
                 )}
                 {game.singles && (
