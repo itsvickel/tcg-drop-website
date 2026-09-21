@@ -708,8 +708,11 @@ function ScanStrip({
   return (
     <div className={styles.strip}>
       <div className={styles.stripHead}>
+        {/* "Recent", not "this session": the list is kept on the device and
+            survives closing the page, so calling it a session would be wrong
+            the second time someone opens the scanner. */}
         <span className={styles.stripTitle}>
-          This session{history.length > 0 ? ` · ${history.length}` : ""}
+          Recent{history.length > 0 ? ` · ${history.length}` : ""}
         </span>
         {priced > 0 && (
           <span className={styles.stripTotal}>≈ ${totalCad.toFixed(2)} CAD</span>
@@ -733,8 +736,15 @@ function ScanStrip({
               ) : (
                 <span className={styles.stripArtEmpty} aria-hidden="true" />
               )}
+              {/* Rounding to whole dollars printed "$0" on a 39-cent card,
+                  which reads as free rather than as cheap. Under ten dollars
+                  the cents are the information. */}
               <span className={styles.stripPrice}>
-                {entry.marketCad !== null ? `$${entry.marketCad.toFixed(0)}` : "—"}
+                {entry.marketCad === null
+                  ? "—"
+                  : entry.marketCad < 10
+                    ? `$${entry.marketCad.toFixed(2)}`
+                    : `$${Math.round(entry.marketCad)}`}
               </span>
             </button>
           ))}
