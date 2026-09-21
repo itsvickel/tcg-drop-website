@@ -8,6 +8,13 @@ import GameSubNav from "../components/GameSubNav";
 import Footer from "../components/Footer";
 import { providerCredit } from "../lib/cardProviders";
 import { buildLookupQuery } from "../lib/cardLookup";
+import {
+  addToHistory,
+  clearHistory,
+  loadHistory,
+  relativeTime,
+  type ScanHistoryEntry,
+} from "../lib/scanHistory";
 import type { CardMatch, LookupResponse } from "../lib/cardLookup";
 import { TCG_CONFIGS, type TcgSlug } from "../lib/tcg.config";
 import { SITE_URL } from "../lib/siteUrl";
@@ -72,6 +79,14 @@ export default function ScanPage() {
    * can differ tenfold — the exact mistake the matcher refused to make.
    */
   const [scanAmbiguous, setScanAmbiguous] = useState(false);
+  /**
+   * The cards scanned on this device, newest first.
+   *
+   * Read after mount rather than during render: it comes from localStorage,
+   * which the server has no view of, and seeding state from it directly would
+   * make the first client render disagree with the server's.
+   */
+  const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
   const [setId, setSetId] = useState("");
   const [sort, setSort] = useState("newest");
   const [stockedOnly, setStockedOnly] = useState(false);
@@ -94,6 +109,10 @@ export default function ScanPage() {
    * Deliberately unawaited and unhandled: this is a head start, not a
    * dependency. The scanner fetches these itself and copes with either missing.
    */
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
   useEffect(() => {
     const warm = new AbortController();
     for (const path of ["card-hashes", "card-names"]) {
@@ -167,6 +186,26 @@ export default function ScanPage() {
             setQuery(identified);
             setSubmitted(identified);
           }
+
+          // Recorded only for a scan, and only once the card is known. A
+          // fingerprint on its own is not something anyone can read back.
+          const top = next.matches[0];
+          if (byFingerprint && top) {
+            setHistory(
+              addToHistory({
+                hash: filters.cardHash,
+                hashes: filters.tiedHashes,
+                query: identified,
+                tcg: game,
+                name: top.name,
+                setName: top.setName,
+                collectorNumber: top.collectorNumber,
+                imageUrl: top.imageUrl,
+                marketCad: top.marketCad,
+                at: Date.now(),
+              })
+            );
+          }
         }
       } catch {
         if (offset === 0) setResult(null);
@@ -221,6 +260,29 @@ export default function ScanPage() {
       });
     },
     [runLookup, setId, sort, stockedOnly, tcg]
+  );
+
+  /**
+   * Re-open a card from the history.
+   *
+   * Re-runs the original lookup rather than replaying what was stored. The
+   * stored price is a snapshot from the moment it was scanned, and a card
+   * someone is coming back to is usually one they are deciding about — so it
+   * gets today's number, and today's Canadian listings, not last week's.
+   */
+  const reopen = useCallback(
+    (entry: ScanHistoryEntry) => {
+      setScanSheet(false);
+      setSetId("");
+      setQuery(entry.query ?? entry.name);
+      void runLookup(entry.query ?? entry.name, tcg, 0, {
+        sort,
+        stocked: stockedOnly,
+        cardHash: entry.hash,
+        tiedHashes: entry.hashes,
+      });
+    },
+    [runLookup, sort, stockedOnly, tcg]
   );
 
   const credit = providerCredit(tcg);
@@ -361,11 +423,18 @@ export default function ScanPage() {
         {result && !loading && (
           <section className={styles.results} aria-live="polite">
             <h2 className={styles.resultsHeading}>
+              {/* A scan has no search term — its fingerprints are the query —
+                  so the heading names the card that was found instead. Without
+                  this it read: 1 printing of “”. */}
               {total === 0
-                ? `Nothing matched “${result.query}”`
+                ? result.query
+                  ? `Nothing matched “${result.query}”`
+                  : "That scan did not match a card"
                 : result.exact
                   ? "One printing matched"
-                  : `${total} printing${total === 1 ? "" : "s"} of “${result.query}”`}
+                  : `${total} printing${total === 1 ? "" : "s"} of “${
+                      result.query || matches[0]?.name || "that card"
+                    }”`}
             </h2>
             {result.correctedTo && (
               <p className={styles.corrected}>
@@ -504,6 +573,58 @@ export default function ScanPage() {
                 </ul>
               </section>
             )}
+          </section>
+        )}
+
+        {history.length > 0 && (
+          <section className={styles.history} aria-labelledby="scan-history-heading">
+            <div className={styles.historyHead}>
+              <h2 id="scan-history-heading" className={styles.historyHeading}>
+                Recent scans
+              </h2>
+              <button
+                type="button"
+                className={styles.historyClear}
+                onClick={() => setHistory(clearHistory())}
+              >
+                Clear
+              </button>
+            </div>
+            {/* Stored on this device only — no account, and nothing leaves it. */}
+            <p className={styles.historyNote}>
+              Kept on this device. Prices shown are from when you scanned; tap a
+              card to look it up again.
+            </p>
+            <ul className={styles.historyList}>
+              {history.map((entry) => (
+                <li key={`${entry.at}-${entry.name}`}>
+                  <button
+                    type="button"
+                    className={styles.historyItem}
+                    onClick={() => reopen(entry)}
+                  >
+                    {entry.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img className={styles.historyArt} src={entry.imageUrl} alt="" />
+                    ) : (
+                      <span className={styles.historyArtEmpty} aria-hidden="true" />
+                    )}
+                    <span className={styles.historyBody}>
+                      <span className={styles.historyName}>{entry.name}</span>
+                      <span className={styles.historyMeta}>
+                        {entry.setName}
+                        {entry.collectorNumber ? ` · #${entry.collectorNumber}` : ""}
+                        {" · "}
+                        {relativeTime(entry.at)}
+                      </span>
+                    </span>
+                    <span className={styles.historyPrice}>
+                      {entry.marketCad !== null ? `$${entry.marketCad.toFixed(2)}` : "—"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 
