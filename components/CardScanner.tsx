@@ -62,14 +62,23 @@ const CODE_BAND = { top: 0.8, height: 0.2, target: 380 };
 const CONSENSUS = 2;
 
 /**
- * How often the picture is checked.
+ * How often the picture is checked — paced to what the device can afford.
  *
- * Fingerprinting a frame costs about 6ms against the whole catalogue, so this
- * can run many times a second and the only reason not to is heat. It used to
- * run at best every 250ms and in practice far less often, because it shared a
- * loop with OCR and had to wait for it.
+ * A frame costs 7ms against Pokemon's catalogue and 10ms against Magic's
+ * larger one on a desktop, and three to four times that on a mid-range phone.
+ * A fixed interval therefore means very different things on different hardware:
+ * 120ms is a 6% duty cycle here and closer to 30% on a phone, which is the sort
+ * of steady background load that makes a viewfinder stutter and a handset warm.
+ *
+ * So the gap is a multiple of what the last frame actually cost, holding the
+ * scanner to roughly a fifth of the time whatever it is running on. The floor
+ * keeps a fast device from spinning for no benefit — a card cannot be moved
+ * into frame faster than that — and the ceiling keeps a slow one from feeling
+ * dead.
  */
-const ART_INTERVAL_MS = 120;
+const ART_DUTY_DIVISOR = 4;
+const ART_MIN_INTERVAL_MS = 90;
+const ART_MAX_INTERVAL_MS = 400;
 
 /**
  * How long the picture has to keep failing before the title is worth reading.
@@ -662,6 +671,7 @@ export default function CardScanner({
     let failingSince = 0;
 
     while (runningRef.current) {
+      const startedAt = Date.now();
       const art = matchByArt();
       const outcome = artOutcome(art);
 
@@ -706,7 +716,12 @@ export default function CardScanner({
         }
       }
 
-      await new Promise((r) => setTimeout(r, ART_INTERVAL_MS));
+      const cost = Date.now() - startedAt;
+      const gap = Math.min(
+        ART_MAX_INTERVAL_MS,
+        Math.max(ART_MIN_INTERVAL_MS, cost * ART_DUTY_DIVISOR)
+      );
+      await new Promise((r) => setTimeout(r, gap));
     }
   }, [matchByArt, offer, readOnce]);
 
